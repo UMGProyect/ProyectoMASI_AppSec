@@ -1,0 +1,879 @@
+import { sb, $, $$, esc, isRole, toast, fail, tbl, money, fmtD, fmtDT, S, openModal } from './core.js';
+
+async function loadSheetJS() {
+  if (window.XLSX) return window.XLSX;
+  const script = document.createElement('script');
+  script.src = 'https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js';
+  document.head.appendChild(script);
+  return new Promise((resolve) => {
+    script.onload = () => resolve(window.XLSX);
+  });
+}
+
+async function loadJsPDF() {
+  if (window.jspdf) return window.jspdf;
+  
+  const scripts = [
+    'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js'
+  ];
+  
+  for (const src of scripts) {
+    if (!document.querySelector(`script[src="${src}"]`)) {
+      const script = document.createElement('script');
+      script.src = src;
+      document.head.appendChild(script);
+      await new Promise(resolve => {
+        script.onload = resolve;
+      });
+    }
+  }
+  return window.jspdf;
+}
+
+export async function render(el) {
+  const isAdmin = isRole('admin');
+  const isDoctor = isRole('doctor');
+  
+  const [{ data: reports }, { data: doctors }, { data: profiles }] = await Promise.all([
+    isAdmin ? sb.from('report_exports').select('*').order('generated_at', { ascending: false }).limit(50) : Promise.resolve({ data: [] }),
+    isDoctor || isAdmin ? sb.from('profiles').select('id, full_name').eq('role', 'doctor') : Promise.resolve({ data: [] }),
+    isAdmin ? sb.from('profiles').select('id, full_name') : Promise.resolve({ data: [] })
+  ]);
+
+  const userNames = Object.fromEntries((profiles || []).map(p => [p.id, p.full_name]));
+
+  el.innerHTML = `
+    <div class="bar"><h2>Reportes Gerenciales</h2></div>
+
+    <div class="card" style="background:#fff3cd; border-left:4px solid #ffc107; margin-bottom:1rem">
+      <h3 style="color:#856404">🔒 Reportes con Auditoría Completa</h3>
+      <p class="muted">Todos los reportes generados incluyen metadatos de auditoría y registro de quién los generó. Los datos clínicos están protegidos por RLS.</p>
+    </div>
+
+    <div class="card">
+      <h3>Generar Nuevo Reporte</h3>
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap:1rem;">
+        ${isAdmin ? `
+        <div class="report-card" data-type="financial" style="padding:1rem; border:2px solid #e0e0e0; border-radius:8px; cursor:pointer; transition:all 0.2s;">
+          <h4 style="margin:0 0 0.5rem 0;">💰 Reporte Financiero</h4>
+          <p class="muted" style="margin:0;">Facturación, ingresos por método de pago, reembolsos</p>
+        </div>
+        ` : ''}
+        ${isDoctor || isAdmin ? `
+        <div class="report-card" data-type="clinical" style="padding:1rem; border:2px solid #e0e0e0; border-radius:8px; cursor:pointer; transition:all 0.2s;">
+          <h4 style="margin:0 0 0.5rem 0;">🏥 Reporte Clínico</h4>
+          <p class="muted" style="margin:0;">Consultas, diagnósticos, actividad por médico</p>
+        </div>
+        ` : ''}
+        ${isAdmin ? `
+        <div class="report-card" data-type="inventory" style="padding:1rem; border:2px solid #e0e0e0; border-radius:8px; cursor:pointer; transition:all 0.2s;">
+          <h4 style="margin:0 0 0.5rem 0;">📦 Reporte de Inventario</h4>
+          <p class="muted" style="margin:0;">Stock, movimientos, productos por vencer</p>
+        </div>
+        <div class="report-card" data-type="patients" style="padding:1rem; border:2px solid #e0e0e0; border-radius:8px; cursor:pointer; transition:all 0.2s;">
+          <h4 style="margin:0 0 0.5rem 0;">👥 Reporte de Pacientes</h4>
+          <p class="muted" style="margin:0;">Pacientes registrados, citas, expedientes</p>
+        </div>
+        ` : ''}
+      </div>
+    </div>
+
+    ${isAdmin ? `
+    <div class="card" style="margin-top:1rem">
+      <h3>Historial de Reportes Generados</h3>
+      ${(reports || []).length > 0 ? tbl(['Fecha', 'Tipo', 'Filas', 'Formato', 'Generado por', 'Acciones'], (reports || []).map(r => [
+        esc(fmtDT(r.generated_at)),
+        `<span class="badge">${esc(r.report_type)}</span>`,
+        esc(r.row_count),
+        esc(r.file_format.toUpperCase()),
+        esc(userNames[r.generated_by] || 'Sistema'),
+        `<button class="btn sm" data-view="${r.id}">Ver</button>
+         <button class="btn sm" data-download="${r.id}">Descargar</button>`
+      ])) : '<p class="muted">No hay reportes generados aún.</p>'}
+    </div>
+    ` : ''}
+  `;
+
+  el.addEventListener('click', async (e) => {
+    const card = e.target.closest('.report-card');
+    if (card) {
+      const type = card.dataset.type;
+      openReportConfigModal(type, doctors || [], el);
+      return;
+    }
+
+    const viewBtn = e.target.closest('[data-view]');
+    if (viewBtn) {
+      const id = viewBtn.dataset.view;
+      const report = reports.find(r => r.id === id);
+      if (report) openReportPreview(report, userNames);
+      return;
+    }
+
+    const downloadBtn = e.target.closest('[data-download]');
+    if (downloadBtn) {
+      const id = downloadBtn.dataset.download;
+      const report = reports.find(r => r.id === id);
+      if (report) downloadReport(report, userNames);
+    }
+  });
+}
+
+function openReportConfigModal(type, doctors, parentEl) {
+  const titles = {
+    financial: 'Reporte Financiero',
+    clinical: 'Reporte Clínico',
+    inventory: 'Reporte de Inventario',
+    patients: 'Reporte de Pacientes'
+  };
+
+  let fieldsHtml = `
+    <div>
+      <label>Fecha Desde *</label>
+      <input type="date" name="from" required style="width:100%">
+    </div>
+    <div>
+      <label>Fecha Hasta *</label>
+      <input type="date" name="to" required style="width:100%">
+    </div>
+  `;
+
+  if (type === 'clinical') {
+    fieldsHtml += `
+      <div>
+        <label>Médico (opcional)</label>
+        <select name="doctor_id" style="width:100%">
+          <option value="">Todos los médicos</option>
+          ${doctors.map(d => `<option value="${d.id}">${esc(d.full_name)}</option>`).join('')}
+        </select>
+      </div>
+    `;
+  }
+
+  const { el, close } = openModal(`Configurar ${titles[type]}`, `
+    <form id="report-form" style="display:grid; gap:0.75rem;">
+      ${fieldsHtml}
+      <div>
+        <label>Formato de Exportación</label>
+        <select name="format" required style="width:100%">
+          <option value="csv">CSV (Datos tabulares)</option>
+          <option value="xlsx">XLSX (Excel)</option>
+          <option value="pdf">PDF (Documento)</option>
+        </select>
+      </div>
+      <button type="submit" class="btn">Generar Reporte</button>
+    </form>
+  `);
+
+  $('#report-form', el).onsubmit = async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const from = formData.get('from');
+    const to = formData.get('to');
+    const format = formData.get('format');
+
+    try {
+      let reportData;
+      let reportType;
+
+      if (type === 'financial') {
+        const { data, error } = await sb.rpc('generate_financial_report', {
+          p_from: from, p_to: to, p_format: format
+        });
+        if (error) throw error;
+        reportData = data.data;
+        reportType = 'financial';
+      } else if (type === 'clinical') {
+        const doctorId = formData.get('doctor_id') || null;
+        const { data, error } = await sb.rpc('generate_clinical_report', {
+          p_from: from, p_to: to, p_doctor_id: doctorId
+        });
+        if (error) throw error;
+        reportData = data.data;
+        reportType = 'clinical';
+      } else if (type === 'inventory') {
+        const [{ data: products }, { data: batches }, { data: movements }] = await Promise.all([
+          sb.from('products').select('*').order('name'),
+          sb.from('product_batches').select('*, products(name)').order('expiration_date'),
+          sb.from('inventory_movements').select('*, products(name)').gte('performed_at', from + 'T00:00:00').lte('performed_at', to + 'T23:59:59')
+        ]);
+        
+        reportData = {
+          period: { from, to },
+          products: products || [],
+          batches: batches || [],
+          movements: movements || [],
+          totals: {
+            total_products: (products || []).length,
+            low_stock: (products || []).filter(p => p.stock <= p.min_stock).length,
+            expiring_soon: (batches || []).filter(b => {
+              const days = Math.ceil((new Date(b.expiration_date) - new Date()) / (1000 * 60 * 60 * 24));
+              return days <= 30 && days >= 0 && b.remaining_quantity > 0;
+            }).length
+          }
+        };
+        reportType = 'inventory';
+      } else if (type === 'patients') {
+        const [{ data: patients }, { data: appointments }] = await Promise.all([
+          sb.from('patients').select('*').gte('created_at', from + 'T00:00:00').lte('created_at', to + 'T23:59:59'),
+          sb.from('appointments').select('*').gte('starts_at', from + 'T00:00:00').lte('starts_at', to + 'T23:59:59')
+        ]);
+        
+        reportData = {
+          period: { from, to },
+          patients: patients || [],
+          appointments: appointments || [],
+          totals: {
+            total_patients: (patients || []).length,
+            total_appointments: (appointments || []).length,
+            attended: (appointments || []).filter(a => a.status === 'atendida').length,
+            cancelled: (appointments || []).filter(a => a.status === 'cancelada').length
+          }
+        };
+        reportType = 'patients';
+      }
+
+      const rowCount = reportData.totals?.total_invoices || reportData.totals?.total_consultations || 
+                       reportData.totals?.total_products || reportData.totals?.total_patients || 0;
+
+      const { data: report, error: insertError } = await sb.from('report_exports').insert({
+        report_type: reportType,
+        filters: { from, to },
+        row_count: rowCount,
+        file_format: format,
+        metadata: {
+          generated_by: S.user.id,
+          generated_at: new Date().toISOString(),
+          filters: { from, to },
+          data: reportData
+        }
+      }).select().single();
+
+      if (insertError) throw insertError;
+
+      toast(`Reporte generado: ${report.row_count} registros`);
+      close();
+      
+      render(parentEl);
+      
+      const { data: profiles } = await sb.from('profiles').select('id, full_name');
+      const userNames = Object.fromEntries((profiles || []).map(p => [p.id, p.full_name]));
+      openReportPreview(report, userNames);
+    } catch (err) {
+      fail(err);
+    }
+  };
+}
+
+function openReportPreview(report, userNames = {}) {
+  const data = report.metadata?.data;
+  if (!data) {
+    toast('Este reporte no tiene datos disponibles para visualizar', true);
+    return;
+  }
+
+  let contentHtml = '';
+
+  if (report.report_type === 'financial') {
+    const invoices = data.invoices || [];
+    contentHtml = `
+      <h4>Facturas (${invoices.length})</h4>
+      ${invoices.length > 0 ? tbl(['Número', 'Paciente', 'Fecha', 'Total', 'Método', 'Estado'], invoices.map(inv => [
+        esc(inv.number),
+        esc(inv.patient),
+        esc(fmtDT(inv.date)),
+        money(inv.total),
+        esc(inv.method || '-'),
+        `<span class="badge">${esc(inv.status)}</span>`
+      ])) : '<p class="muted">Sin facturas en el período.</p>'}
+      <div style="margin-top:1rem; padding:1rem; background:#f5f5f5; border-radius:4px;">
+        <strong>Totales:</strong><br>
+        Total facturas: ${data.totals?.total_invoices || 0}<br>
+        Monto total: ${money(data.totals?.total_amount || 0)}<br>
+        Efectivo: ${money(data.totals?.cash_total || 0)}<br>
+        Tarjeta: ${money(data.totals?.card_total || 0)}
+      </div>
+    `;
+  } else if (report.report_type === 'clinical') {
+    const consultations = data.consultations || [];
+    contentHtml = `
+      <h4>Consultas (${consultations.length})</h4>
+      ${consultations.length > 0 ? tbl(['Fecha', 'Paciente', 'Médico', 'Diagnóstico', 'Estado'], consultations.map(c => [
+        esc(fmtDT(c.date)),
+        esc(c.patient),
+        esc(c.doctor),
+        esc(c.diagnosis || '-'),
+        c.finalized ? '<span class="badge confirmada">Finalizada</span>' : '<span class="badge pendiente">En curso</span>'
+      ])) : '<p class="muted">Sin consultas en el período.</p>'}
+      <div style="margin-top:1rem; padding:1rem; background:#f5f5f5; border-radius:4px;">
+        <strong>Total consultas:</strong> ${data.totals?.total_consultations || 0}
+      </div>
+    `;
+  } else if (report.report_type === 'inventory') {
+    const products = data.products || [];
+    const batches = data.batches || [];
+    contentHtml = `
+      <h4>Productos (${products.length})</h4>
+      ${products.length > 0 ? tbl(['Nombre', 'Stock Actual', 'Stock Mínimo', 'Precio'], products.map(p => [
+        esc(p.name),
+        `<strong style="color:${p.stock <= p.min_stock ? '#c62828' : 'inherit'}">${esc(p.stock)}</strong>`,
+        esc(p.min_stock),
+        money(p.price)
+      ])) : '<p class="muted">Sin productos.</p>'}
+      
+      <h4 style="margin-top:1rem;">Lotes (${batches.length})</h4>
+      ${batches.length > 0 ? tbl(['Producto', 'Lote', 'Vencimiento', 'Restante'], batches.map(b => [
+        esc(b.products?.name || 'N/A'),
+        esc(b.batch_number),
+        fmtD(b.expiration_date),
+        esc(b.remaining_quantity)
+      ])) : '<p class="muted">Sin lotes.</p>'}
+      
+      <div style="margin-top:1rem; padding:1rem; background:#f5f5f5; border-radius:4px;">
+        <strong>Totales:</strong><br>
+        Total productos: ${data.totals?.total_products || 0}<br>
+        Stock bajo: ${data.totals?.low_stock || 0}<br>
+        Próximos a vencer: ${data.totals?.expiring_soon || 0}
+      </div>
+    `;
+  } else if (report.report_type === 'patients') {
+    const patients = data.patients || [];
+    const appointments = data.appointments || [];
+    contentHtml = `
+      <h4>Pacientes (${patients.length})</h4>
+      ${patients.length > 0 ? tbl(['Nombre', 'DPI', 'Fecha Nacimiento', 'Teléfono'], patients.map(p => [
+        esc(`${p.first_name} ${p.last_name}`),
+        esc(p.dpi),
+        fmtD(p.birth_date),
+        esc(p.phone || '-')
+      ])) : '<p class="muted">Sin pacientes en el período.</p>'}
+      
+      <h4 style="margin-top:1rem;">Citas (${appointments.length})</h4>
+      ${appointments.length > 0 ? tbl(['Fecha', 'Estado'], appointments.map(a => [
+        esc(fmtDT(a.starts_at)),
+        `<span class="badge">${esc(a.status)}</span>`
+      ])) : '<p class="muted">Sin citas en el período.</p>'}
+      
+      <div style="margin-top:1rem; padding:1rem; background:#f5f5f5; border-radius:4px;">
+        <strong>Totales:</strong><br>
+        Total pacientes: ${data.totals?.total_patients || 0}<br>
+        Total citas: ${data.totals?.total_appointments || 0}<br>
+        Atendidas: ${data.totals?.attended || 0}<br>
+        Canceladas: ${data.totals?.cancelled || 0}
+      </div>
+    `;
+  }
+
+  const { el, close } = openModal(`Vista Previa: ${report.report_type.toUpperCase()}`, `
+    <div style="display:grid; gap:1rem;">
+      <div style="background:#e3f2fd; padding:0.75rem; border-radius:4px; border-left:4px solid #2196F3;">
+        <strong>Período:</strong> ${fmtD(report.metadata?.filters?.from)} al ${fmtD(report.metadata?.filters?.to)}<br>
+        <strong>Generado:</strong> ${fmtDT(report.generated_at)}<br>
+        <strong>Generado por:</strong> ${esc(userNames[report.generated_by] || 'Sistema')}<br>
+        <strong>Filas:</strong> ${report.row_count}
+      </div>
+      ${contentHtml}
+      <div class="bar" style="justify-content:flex-end; gap:0.5rem;">
+        <button class="btn sm" id="preview-download">Descargar ${report.file_format.toUpperCase()}</button>
+        <button class="btn sm" id="preview-close">Cerrar</button>
+      </div>
+    </div>
+  `);
+
+  $('#preview-close', el).onclick = close;
+  $('#preview-download', el).onclick = () => downloadReport(report, userNames);
+}
+
+async function downloadReport(report, userNames = {}) {
+  const data = report.metadata?.data;
+  if (!data) {
+    toast('Este reporte no tiene datos disponibles', true);
+    return;
+  }
+
+  const format = report.file_format;
+  const filename = `reporte_${report.report_type}_${report.metadata?.filters?.from}_a_${report.metadata?.filters?.to}`;
+
+  try {
+    if (format === 'csv') {
+      downloadCSV(report, data, filename, userNames);
+    } else if (format === 'xlsx') {
+      await downloadXLSX(report, data, filename, userNames);
+    } else if (format === 'pdf') {
+      await downloadPDF(report, data, filename, userNames);
+    }
+    toast(`Reporte ${format.toUpperCase()} descargado exitosamente`);
+  } catch (err) {
+    fail(err);
+  }
+}
+
+function downloadCSV(report, data, filename, userNames = {}) {
+  let rows = [];
+  
+  rows.push(['Centro Médico Premier']);
+  rows.push([`Reporte de ${report.report_type.toUpperCase()}`]);
+  rows.push([]);
+  rows.push(['Generado por', userNames[report.generated_by] || '']);
+  rows.push(['Generado el', report.generated_at]);
+  rows.push(['Período', `${report.metadata?.filters?.from} al ${report.metadata?.filters?.to}`]);
+  rows.push([]);
+
+  if (report.report_type === 'financial') {
+    rows.push(['Número', 'Paciente', 'Fecha', 'Total', 'Método', 'Estado']);
+    (data.invoices || []).forEach(inv => {
+      rows.push([inv.number, inv.patient, inv.date, inv.total, inv.method || '', inv.status]);
+    });
+    rows.push([]);
+    rows.push(['TOTALES']);
+    rows.push(['Total facturas', data.totals?.total_invoices || 0]);
+    rows.push(['Monto total', data.totals?.total_amount || 0]);
+    rows.push(['Efectivo', data.totals?.cash_total || 0]);
+    rows.push(['Tarjeta', data.totals?.card_total || 0]);
+  } else if (report.report_type === 'clinical') {
+    rows.push(['Fecha', 'Paciente', 'Médico', 'Diagnóstico', 'Estado']);
+    (data.consultations || []).forEach(c => {
+      rows.push([c.date, c.patient, c.doctor, c.diagnosis || '', c.finalized ? 'Finalizada' : 'En curso']);
+    });
+    rows.push([]);
+    rows.push(['Total consultas', data.totals?.total_consultations || 0]);
+  } else if (report.report_type === 'inventory') {
+    rows.push(['PRODUCTOS']);
+    rows.push(['Nombre', 'Stock Actual', 'Stock Mínimo', 'Precio']);
+    (data.products || []).forEach(p => {
+      rows.push([p.name, p.stock, p.min_stock, p.price]);
+    });
+    rows.push([]);
+    rows.push(['LOTES']);
+    rows.push(['Producto', 'Lote', 'Vencimiento', 'Restante']);
+    (data.batches || []).forEach(b => {
+      rows.push([b.products?.name || '', b.batch_number, b.expiration_date, b.remaining_quantity]);
+    });
+    rows.push([]);
+    rows.push(['TOTALES']);
+    rows.push(['Total productos', data.totals?.total_products || 0]);
+    rows.push(['Stock bajo', data.totals?.low_stock || 0]);
+    rows.push(['Próximos a vencer', data.totals?.expiring_soon || 0]);
+  } else if (report.report_type === 'patients') {
+    rows.push(['PACIENTES']);
+    rows.push(['Nombre', 'DPI', 'Fecha Nacimiento', 'Teléfono']);
+    (data.patients || []).forEach(p => {
+      rows.push([`${p.first_name} ${p.last_name}`, p.dpi, p.birth_date, p.phone || '']);
+    });
+    rows.push([]);
+    rows.push(['CITAS']);
+    rows.push(['Fecha', 'Estado']);
+    (data.appointments || []).forEach(a => {
+      rows.push([a.starts_at, a.status]);
+    });
+    rows.push([]);
+    rows.push(['TOTALES']);
+    rows.push(['Total pacientes', data.totals?.total_patients || 0]);
+    rows.push(['Total citas', data.totals?.total_appointments || 0]);
+    rows.push(['Atendidas', data.totals?.attended || 0]);
+    rows.push(['Canceladas', data.totals?.cancelled || 0]);
+  }
+
+  const csv = '\uFEFF' + rows.map(row => 
+    row.map(cell => {
+      let s = String(cell ?? '');
+      if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+      return `"${s.replace(/"/g, '""')}"`;
+    }).join(',')
+  ).join('\r\n');
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${filename}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
+async function downloadXLSX(report, data, filename, userNames = {}) {
+  const XLSX = await loadSheetJS();
+  const wb = XLSX.utils.book_new();
+
+  const metaRows = [
+    ['Centro Médico Premier'],
+    [`Reporte de ${report.report_type.toUpperCase()}`],
+    [],
+    ['Generado por', userNames[report.generated_by] || ''],
+    ['Generado el', report.generated_at],
+    ['Período', `${report.metadata?.filters?.from} al ${report.metadata?.filters?.to}`],
+    []
+  ];
+
+  if (report.report_type === 'financial') {
+    const invoiceRows = [
+      ['Número', 'Paciente', 'Fecha', 'Total', 'Método', 'Estado'],
+      ...(data.invoices || []).map(inv => [inv.number, inv.patient, inv.date, inv.total, inv.method || '', inv.status])
+    ];
+    const ws1 = XLSX.utils.aoa_to_sheet(invoiceRows);
+    XLSX.utils.book_append_sheet(wb, ws1, 'Facturas');
+
+    const totalRows = [
+      ...metaRows,
+      ['TOTALES'],
+      ['Total facturas', data.totals?.total_invoices || 0],
+      ['Monto total', data.totals?.total_amount || 0],
+      ['Efectivo', data.totals?.cash_total || 0],
+      ['Tarjeta', data.totals?.card_total || 0]
+    ];
+    const ws2 = XLSX.utils.aoa_to_sheet(totalRows);
+    XLSX.utils.book_append_sheet(wb, ws2, 'Resumen');
+  } else if (report.report_type === 'clinical') {
+    const consultRows = [
+      ['Fecha', 'Paciente', 'Médico', 'Diagnóstico', 'Estado'],
+      ...(data.consultations || []).map(c => [c.date, c.patient, c.doctor, c.diagnosis || '', c.finalized ? 'Finalizada' : 'En curso'])
+    ];
+    const ws1 = XLSX.utils.aoa_to_sheet(consultRows);
+    XLSX.utils.book_append_sheet(wb, ws1, 'Consultas');
+
+    const totalRows = [...metaRows, ['Total consultas', data.totals?.total_consultations || 0]];
+    const ws2 = XLSX.utils.aoa_to_sheet(totalRows);
+    XLSX.utils.book_append_sheet(wb, ws2, 'Resumen');
+  } else if (report.report_type === 'inventory') {
+    const prodRows = [
+      ['Nombre', 'Stock Actual', 'Stock Mínimo', 'Precio'],
+      ...(data.products || []).map(p => [p.name, p.stock, p.min_stock, p.price])
+    ];
+    const ws1 = XLSX.utils.aoa_to_sheet(prodRows);
+    XLSX.utils.book_append_sheet(wb, ws1, 'Productos');
+
+    const batchRows = [
+      ['Producto', 'Lote', 'Vencimiento', 'Restante'],
+      ...(data.batches || []).map(b => [b.products?.name || '', b.batch_number, b.expiration_date, b.remaining_quantity])
+    ];
+    const ws2 = XLSX.utils.aoa_to_sheet(batchRows);
+    XLSX.utils.book_append_sheet(wb, ws2, 'Lotes');
+
+    const totalRows = [
+      ...metaRows,
+      ['TOTALES'],
+      ['Total productos', data.totals?.total_products || 0],
+      ['Stock bajo', data.totals?.low_stock || 0],
+      ['Próximos a vencer', data.totals?.expiring_soon || 0]
+    ];
+    const ws3 = XLSX.utils.aoa_to_sheet(totalRows);
+    XLSX.utils.book_append_sheet(wb, ws3, 'Resumen');
+  } else if (report.report_type === 'patients') {
+    const patRows = [
+      ['Nombre', 'DPI', 'Fecha Nacimiento', 'Teléfono'],
+      ...(data.patients || []).map(p => [`${p.first_name} ${p.last_name}`, p.dpi, p.birth_date, p.phone || ''])
+    ];
+    const ws1 = XLSX.utils.aoa_to_sheet(patRows);
+    XLSX.utils.book_append_sheet(wb, ws1, 'Pacientes');
+
+    const apptRows = [
+      ['Fecha', 'Estado'],
+      ...(data.appointments || []).map(a => [a.starts_at, a.status])
+    ];
+    const ws2 = XLSX.utils.aoa_to_sheet(apptRows);
+    XLSX.utils.book_append_sheet(wb, ws2, 'Citas');
+
+    const totalRows = [
+      ...metaRows,
+      ['TOTALES'],
+      ['Total pacientes', data.totals?.total_patients || 0],
+      ['Total citas', data.totals?.total_appointments || 0],
+      ['Atendidas', data.totals?.attended || 0],
+      ['Canceladas', data.totals?.cancelled || 0]
+    ];
+    const ws3 = XLSX.utils.aoa_to_sheet(totalRows);
+    XLSX.utils.book_append_sheet(wb, ws3, 'Resumen');
+  }
+
+  XLSX.writeFile(wb, `${filename}.xlsx`);
+}
+
+async function downloadPDF(report, data, filename, userNames = {}) {
+  const { jsPDF } = await loadJsPDF();
+  const doc = new jsPDF();
+
+  // Encabezado institucional con banner azul
+  doc.setFillColor(41, 128, 185);
+  doc.rect(0, 0, 210, 35, 'F');
+  
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(20);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Centro Médico Premier', 14, 15);
+  
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Reporte de ${report.report_type.toUpperCase()}`, 14, 25);
+
+  // Información del reporte en caja gris
+  doc.setTextColor(60, 60, 60);
+  doc.setFontSize(10);
+  
+  let yPos = 45;
+  
+  doc.setFillColor(245, 245, 245);
+  doc.rect(14, yPos - 5, 182, 25, 'F');
+  
+  doc.setFont('helvetica', 'bold');
+  doc.text('Información del Reporte', 18, yPos);
+  yPos += 7;
+  
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Generado por: ${userNames[report.generated_by] || 'Sistema'}`, 18, yPos);
+  yPos += 5;
+  doc.text(`Fecha de generación: ${fmtDT(report.generated_at)}`, 18, yPos);
+  yPos += 5;
+  doc.text(`Período: ${fmtD(report.metadata?.filters?.from)} al ${fmtD(report.metadata?.filters?.to)}`, 18, yPos);
+
+  yPos += 15;
+
+  // Configuración común para tablas
+  const tableConfig = {
+    theme: 'grid',
+    headStyles: { 
+      fillColor: [41, 128, 185],
+      textColor: [255, 255, 255],
+      fontStyle: 'bold',
+      fontSize: 9
+    },
+    bodyStyles: {
+      fontSize: 8,
+      textColor: [60, 60, 60]
+    },
+    alternateRowStyles: {
+      fillColor: [248, 249, 250]
+    },
+    margin: { left: 14, right: 14 }
+  };
+
+  // Contenido según tipo de reporte
+  if (report.report_type === 'financial') {
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(41, 128, 185);
+    doc.text('Detalle de Facturas', 14, yPos);
+    yPos += 5;
+
+    doc.autoTable({
+      ...tableConfig,
+      startY: yPos,
+      head: [['Número', 'Paciente', 'Fecha', 'Total', 'Método', 'Estado']],
+      body: (data.invoices || []).map(inv => [
+        inv.number, 
+        inv.patient, 
+        fmtDT(inv.date), 
+        money(inv.total), 
+        inv.method || '-', 
+        inv.status
+      ])
+    });
+
+    yPos = doc.lastAutoTable.finalY + 10;
+    
+    doc.setFillColor(232, 245, 253);
+    doc.rect(14, yPos - 5, 182, 35, 'F');
+    
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(41, 128, 185);
+    doc.text('Resumen Financiero', 18, yPos);
+    yPos += 8;
+    
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(60, 60, 60);
+    doc.text(`Total de facturas: ${data.totals?.total_invoices || 0}`, 18, yPos);
+    yPos += 6;
+    doc.text(`Monto total facturado: ${money(data.totals?.total_amount || 0)}`, 18, yPos);
+    yPos += 6;
+    doc.text(`Ingresos en efectivo: ${money(data.totals?.cash_total || 0)}`, 18, yPos);
+    yPos += 6;
+    doc.text(`Ingresos por tarjeta: ${money(data.totals?.card_total || 0)}`, 18, yPos);
+
+  } else if (report.report_type === 'clinical') {
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(41, 128, 185);
+    doc.text('Detalle de Consultas', 14, yPos);
+    yPos += 5;
+
+    doc.autoTable({
+      ...tableConfig,
+      startY: yPos,
+      head: [['Fecha', 'Paciente', 'Médico', 'Diagnóstico', 'Estado']],
+      body: (data.consultations || []).map(c => [
+        fmtDT(c.date), 
+        c.patient, 
+        c.doctor, 
+        c.diagnosis || '-', 
+        c.finalized ? 'Finalizada' : 'En curso'
+      ])
+    });
+
+    yPos = doc.lastAutoTable.finalY + 10;
+    
+    doc.setFillColor(232, 245, 253);
+    doc.rect(14, yPos - 5, 182, 20, 'F');
+    
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(41, 128, 185);
+    doc.text('Resumen Clínico', 18, yPos);
+    yPos += 8;
+    
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(60, 60, 60);
+    doc.text(`Total de consultas: ${data.totals?.total_consultations || 0}`, 18, yPos);
+
+  } else if (report.report_type === 'inventory') {
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(41, 128, 185);
+    doc.text('Inventario de Productos', 14, yPos);
+    yPos += 5;
+
+    doc.autoTable({
+      ...tableConfig,
+      startY: yPos,
+      head: [['Nombre', 'Stock Actual', 'Stock Mínimo', 'Precio']],
+      body: (data.products || []).map(p => [
+        p.name, 
+        p.stock, 
+        p.min_stock, 
+        money(p.price)
+      ])
+    });
+
+    yPos = doc.lastAutoTable.finalY + 10;
+    
+    if (yPos > 240) {
+      doc.addPage();
+      yPos = 20;
+    }
+
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(41, 128, 185);
+    doc.text('Control de Lotes', 14, yPos);
+    yPos += 5;
+
+    doc.autoTable({
+      ...tableConfig,
+      startY: yPos,
+      head: [['Producto', 'Lote', 'Vencimiento', 'Restante']],
+      body: (data.batches || []).map(b => [
+        b.products?.name || '', 
+        b.batch_number, 
+        fmtD(b.expiration_date), 
+        b.remaining_quantity
+      ])
+    });
+
+    yPos = doc.lastAutoTable.finalY + 10;
+    
+    doc.setFillColor(232, 245, 253);
+    doc.rect(14, yPos - 5, 182, 28, 'F');
+    
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(41, 128, 185);
+    doc.text('Resumen de Inventario', 18, yPos);
+    yPos += 8;
+    
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(60, 60, 60);
+    doc.text(`Total de productos: ${data.totals?.total_products || 0}`, 18, yPos);
+    yPos += 6;
+    doc.text(`Productos con stock bajo: ${data.totals?.low_stock || 0}`, 18, yPos);
+    yPos += 6;
+    doc.text(`Lotes próximos a vencer: ${data.totals?.expiring_soon || 0}`, 18, yPos);
+
+  } else if (report.report_type === 'patients') {
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(41, 128, 185);
+    doc.text('Registro de Pacientes', 14, yPos);
+    yPos += 5;
+
+    doc.autoTable({
+      ...tableConfig,
+      startY: yPos,
+      head: [['Nombre', 'DPI', 'Nacimiento', 'Teléfono']],
+      body: (data.patients || []).map(p => [
+        `${p.first_name} ${p.last_name}`, 
+        p.dpi, 
+        fmtD(p.birth_date), 
+        p.phone || '-'
+      ])
+    });
+
+    yPos = doc.lastAutoTable.finalY + 10;
+    
+    if (yPos > 240) {
+      doc.addPage();
+      yPos = 20;
+    }
+
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(41, 128, 185);
+    doc.text('Registro de Citas', 14, yPos);
+    yPos += 5;
+
+    doc.autoTable({
+      ...tableConfig,
+      startY: yPos,
+      head: [['Fecha', 'Estado']],
+      body: (data.appointments || []).map(a => [
+        fmtDT(a.starts_at), 
+        a.status
+      ])
+    });
+
+    yPos = doc.lastAutoTable.finalY + 10;
+    
+    doc.setFillColor(232, 245, 253);
+    doc.rect(14, yPos - 5, 182, 32, 'F');
+    
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(41, 128, 185);
+    doc.text('Resumen de Pacientes y Citas', 18, yPos);
+    yPos += 8;
+    
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(60, 60, 60);
+    doc.text(`Total de pacientes: ${data.totals?.total_patients || 0}`, 18, yPos);
+    yPos += 6;
+    doc.text(`Total de citas: ${data.totals?.total_appointments || 0}`, 18, yPos);
+    yPos += 6;
+    doc.text(`Citas atendidas: ${data.totals?.attended || 0}`, 18, yPos);
+    yPos += 6;
+    doc.text(`Citas canceladas: ${data.totals?.cancelled || 0}`, 18, yPos);
+  }
+
+  // Pie de página profesional
+  const pageCount = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.5);
+    doc.line(14, 282, 196, 282);
+    
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(120, 120, 120);
+    doc.text('Centro Médico Premier', 14, 287);
+    doc.text(`Página ${i} de ${pageCount}`, 196, 287, { align: 'right' });
+    doc.text(`Generado: ${fmtDT(report.generated_at)}`, 105, 287, { align: 'center' });
+  }
+
+  doc.save(`${filename}.pdf`);
+}
