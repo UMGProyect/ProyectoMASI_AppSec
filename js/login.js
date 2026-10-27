@@ -29,6 +29,7 @@ const COPY = {
   register: ['Cree su cuenta', 'Acceda a sus citas y expediente en línea', 'Crear cuenta'],
   forgot: ['Recuperar contraseña', 'Le enviaremos un enlace para restablecerla', 'Enviar enlace'],
   recovery: ['Nueva contraseña', 'Elija una contraseña segura para su cuenta', 'Guardar contraseña'],
+  mfa: ['Verificación en dos pasos', 'Ingrese el código de 6 dígitos de su aplicación autenticadora', 'Verificar'],
 };
 
 const ERR = [
@@ -39,6 +40,7 @@ const ERR = [
   [/password.*(short|least|weak)/i, 'La contraseña es demasiado débil (mínimo 8 caracteres).'],
   [/same.*password|different from the old/i, 'La nueva contraseña debe ser distinta a la anterior.'],
   [/network|fetch/i, 'Sin conexión con el servidor. Verifique su internet.'],
+  [/totp|mfa|verification code|invalid.*code/i, 'Código incorrecto o vencido. Intente de nuevo.'],
   [/seguridad|captcha/i, 'Verificación de seguridad fallida. Intente de nuevo.']
 ];
 const toEs = m => (ERR.find(([r]) => r.test(m || '')) || [, m || 'Ocurrió un error inesperado.'])[1];
@@ -72,12 +74,14 @@ export function authView(boot, mode = 'login') {
   </aside>
   <section class="lg-panel"><div class="lg-card">
     ${tabs ? `<div class="lg-tabs" role="tablist"><button type="button" data-m="login" class="${mode === 'login' ? 'on' : ''}">Ingresar</button><button type="button" data-m="register" class="${mode === 'register' ? 'on' : ''}">Registrarme</button></div>`
-      : mode === 'forgot' ? `<a class="lg-back" data-m="login">${IC.back} Volver a ingresar</a>` : ''}
+      : mode === 'forgot' ? `<a class="lg-back" data-m="login">${IC.back} Volver a ingresar</a>`
+      : mode === 'mfa' ? `<a class="lg-back" data-cancel>${IC.back} Cancelar y volver a ingresar</a>` : ''}
     <h1>${title}</h1><p class="lg-sub">${sub}</p>
     <div class="lg-msg" id="lg-msg" role="alert" hidden></div>
     <form id="lg-form" novalidate>
       ${mode === 'register' ? field('name', 'text', 'Nombre completo', 'user', 'autocomplete="name" required') : ''}
-      ${mode !== 'recovery' ? field('email', 'email', 'Correo electrónico', 'mail', `autocomplete="email" required value="${esc(mode === 'login' ? saved : '')}"`) : ''}
+      ${mode === 'mfa' ? field('code', 'text', 'Código de 6 dígitos', 'lock', 'autocomplete="one-time-code" inputmode="numeric" maxlength="6" pattern="\\d{6}" required') : ''}
+      ${mode !== 'recovery' && mode !== 'mfa' ? field('email', 'email', 'Correo electrónico', 'mail', `autocomplete="email" required value="${esc(mode === 'login' ? saved : '')}"`) : ''}
       ${mode === 'login' || mode === 'register' || mode === 'recovery' ? field('password', 'password', mode === 'login' ? 'Contraseña' : 'Contraseña (mín. 8)', 'lock', `autocomplete="${mode === 'login' ? 'current-password' : 'new-password'}" required minlength="${mode === 'login' ? 1 : 8}"`) : ''}
       ${mode === 'register' || mode === 'recovery' ? `<div class="lg-str" id="lg-str"><div><i></i><i></i><i></i><i></i></div><small></small></div>${field('password2', 'password', 'Confirmar contraseña', 'lock', 'autocomplete="new-password" required')}` : ''}
       ${mode === 'login' ? `<div class="lg-row"><label class="lg-chk"><input type="checkbox" id="lg-rem" ${saved ? 'checked' : ''}> Recordar mi correo</label><a data-m="forgot">¿Olvidó su contraseña?</a></div>` : '<div style="height:6px"></div>'}
@@ -90,6 +94,13 @@ export function authView(boot, mode = 'login') {
   const busy = on => { const b = $('#lg-go'); b.disabled = on; b.innerHTML = on ? '<span class="sp"></span>Procesando…' : cta; };
 
   document.querySelectorAll('[data-m]').forEach(el => (el.onclick = () => authView(boot, el.dataset.m)));
+  // Cancelar el segundo factor: libera la sesión registrada y cierra la sesión parcial (aal1)
+  const cancel = $('[data-cancel]');
+  if (cancel) cancel.onclick = async () => {
+    try { await sb.rpc('close_session'); } catch {}
+    try { await sb.auth.signOut({ scope: 'local' }); } catch {}
+    authView(boot, 'login');
+  };
   document.querySelectorAll('[data-eye]').forEach(b => (b.onclick = () => {
     const i = b.parentElement.querySelector('input'), show = i.type === 'password';
     i.type = show ? 'text' : 'password'; b.innerHTML = show ? IC.off : IC.eye; b.setAttribute('aria-label', show ? 'Ocultar contraseña' : 'Mostrar contraseña');
@@ -110,7 +121,22 @@ export function authView(boot, mode = 'login') {
     const f = Object.fromEntries(new FormData(e.target));
     const bad = n => $('#lg-' + n)?.parentElement.classList.add('bad');
     document.querySelectorAll('.lg-f.bad').forEach(x => x.classList.remove('bad'));
-    
+
+    if (mode === 'mfa') {
+      const code = (f.code || '').replace(/\s/g, '');
+      if (!/^\d{6}$/.test(code)) { bad('code'); return msg('Ingrese los 6 dígitos del código de su aplicación.'); }
+      busy(true);
+      try {
+        const { data: fl, error: fe } = await sb.auth.mfa.listFactors();
+        if (fe) throw fe;
+        const factor = fl.totp?.[0];
+        if (!factor) throw new Error('No hay un autenticador activo en esta cuenta.');
+        const { error } = await sb.auth.mfa.challengeAndVerify({ factorId: factor.id, code });
+        if (error) throw error;
+        return boot();
+      } catch (err) { msg(toEs(err.message)); busy(false); }
+      return;
+    }
     if (mode !== 'recovery' && !/^\S+@\S+\.\S+$/.test(f.email || '')) { bad('email'); return msg('Ingrese un correo válido.'); }
     if (mode === 'register' && !f.name.trim()) { bad('name'); return msg('Ingrese su nombre completo.'); }
     if ((mode === 'register' || mode === 'recovery') && (f.password.length < 8)) { bad('password'); return msg('La contraseña debe tener al menos 8 caracteres.'); }
@@ -178,5 +204,5 @@ export function authView(boot, mode = 'login') {
       }
     } catch (err) { msg(toEs(err.message)); busy(false); }
   };
-  ($('#lg-email') || $('#lg-password'))?.focus();
+  ($('#lg-code') || $('#lg-email') || $('#lg-password'))?.focus();
 }

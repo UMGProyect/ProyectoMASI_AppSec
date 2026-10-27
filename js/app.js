@@ -14,11 +14,19 @@ const ROUTES = {
   billing: { t: 'Facturación y caja', r: ['admin', 'cashier'], m: './billing.js' },
   reports: { t: 'Reportes', r: ['admin', 'doctor', 'pharmacist'], m: './reports.js' },
   users: { t: 'Usuarios y auditoría', r: ['admin'], m: './users.js' },
+  security: { t: 'Seguridad de la cuenta', r: [...STAFF, 'patient'], m: './security.js' },
   consultation: { hide: 1, r: ['admin', 'doctor', 'patient'], m: './consultation.js' },
 };
 const LABELS = { admin: 'Administrador', doctor: 'Médico', nurse: 'Enfermería', patient: 'Paciente', pharmacist: 'Farmacéutico', cashier: 'Cajero' };
-const ICONS = { dashboard: 'grid', patients: 'users', me: 'user', appointments: 'calendar', pharmacy: 'pill', billing: 'receipt', reports: 'chart', users: 'shield' };
+const ICONS = { dashboard: 'grid', patients: 'users', me: 'user', appointments: 'calendar', pharmacy: 'pill', billing: 'receipt', reports: 'chart', users: 'shield', security: 'lock' };
 const initials = s => (String(s || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('') || '?').toUpperCase();
+
+// MFA: el personal debe tener un autenticador (TOTP) verificado; los pacientes lo activan si quieren.
+async function refreshMfa() {
+  const { data, error } = await sb.auth.mfa.listFactors();
+  S.mfaEnrolled = !error && (data?.totp?.length || 0) > 0;
+  S.mfaRequired = STAFF.includes(S.profile.role) && !S.mfaEnrolled; // si falla la consulta, el personal queda en la pantalla de activación
+}
 
 async function boot() {
   if (!window.APP_CONFIG?.SUPABASE_URL) {
@@ -27,15 +35,20 @@ async function boot() {
   const { data: { session } } = await sb.auth.getSession();
   if (RECOVERY) { RECOVERY = false; return authView(boot, 'recovery'); }
   if (!session) return authView(boot);
+  // Contraseña correcta pero segundo factor pendiente (aal1 -> aal2): pedir el código antes de mostrar nada
+  const { data: aal } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (aal?.nextLevel === 'aal2' && aal.currentLevel !== 'aal2') return authView(boot, 'mfa');
   S.user = session.user;
   const { data, error } = await sb.from('profiles').select('*').eq('id', S.user.id).single();
   if (error) { await sb.auth.signOut(); return authView(boot); }
   S.profile = data;
-  
+  await refreshMfa();
+
   SessionManager.start();
-  
+
   shell();
-  if (!location.hash) location.hash = isRole('patient') ? '#/me' : '#/dashboard';
+  if (S.mfaRequired) location.hash = '#/security';
+  else if (!location.hash) location.hash = isRole('patient') ? '#/me' : '#/dashboard';
   route();
 }
 
@@ -47,7 +60,7 @@ function setNav(open) {
 
 function shell() {
   const who = S.profile.full_name || S.profile.email;
-  const nav = Object.entries(ROUTES).filter(([, v]) => !v.hide && v.r.includes(S.profile.role))
+  const nav = Object.entries(ROUTES).filter(([k, v]) => !v.hide && v.r.includes(S.profile.role) && (!S.mfaRequired || k === 'security'))
     .map(([k, v]) => `<a href="#/${k}" data-r="${k}">${ico(ICONS[k] || 'file')}<span>${v.t}</span></a>`).join('');
   $('#app').innerHTML = `<div class="layout">
     <header class="topbar"><button class="burger" id="burger" type="button" aria-label="Abrir menú" aria-expanded="false" aria-controls="side">${ico('menu', 22)}</button><span class="tb-title">Centro Médico Premier</span></header>
@@ -90,6 +103,7 @@ async function route() {
   const [name, param] = location.hash.slice(2).split('/');
   const r = ROUTES[name];
   const el = $('#view');
+  if (S.mfaRequired && name !== 'security') { location.hash = '#/security'; return; } // personal sin autenticador: solo puede activarlo
   if (!r || !r.r.includes(S.profile.role)) { el.innerHTML = '<p class="err">Sección no disponible para su rol.</p>'; return; }
   document.querySelectorAll('.side a[data-r]').forEach(a => a.classList.toggle('on', a.dataset.r === name));
   setNav(false);
@@ -98,10 +112,12 @@ async function route() {
 }
 
 window.addEventListener('hashchange', route);
+window.addEventListener('cmp:mfa-changed', () => boot()); // tras activar o desactivar el autenticador
 document.addEventListener('keydown', e => { if (e.key === 'Escape') setNav(false); });
 sb.auth.onAuthStateChange(ev => {
   if (ev === 'SIGNED_OUT') { 
-    S.user = S.profile = null; 
+    S.user = S.profile = null;
+    S.mfaRequired = S.mfaEnrolled = false;
     SessionManager.stop();
   }
   if (ev === 'PASSWORD_RECOVERY') authView(boot, 'recovery');

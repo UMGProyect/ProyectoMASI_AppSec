@@ -24,3 +24,11 @@ En **Authentication → URL Configuration** pon la URL del sitio desplegado como
 
 ## Desarrollo local
 Coloca tu `config.js` en la raíz (está en `.gitignore`) y ejecuta `npm start`.
+
+## Seguridad: verificación en dos pasos (MFA)
+Aplicación autenticadora (TOTP) con Supabase Auth. Obligatoria para el personal y opcional para pacientes.
+1. En Supabase: Authentication → Multi-Factor → TOTP habilitado.
+2. Cada usuario la activa en **Seguridad de la cuenta** dentro de la app.
+3. Cuando todo el personal la haya activado, ejecutar `Supabase/mfa.sql` en el SQL Editor (reversa: `Supabase/mfa_rollback.sql`).
+
+Detalle, pruebas y limitaciones: [`docs/ficha-mfa-totp.md`](docs/ficha-mfa-totp.md).

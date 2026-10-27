@@ -41,6 +41,9 @@
 .lg-eye:hover{background:#f1f5f9;color:var(--lg-p)}
 .lg-f.bad input{border-color:var(--lg-bad)}
 
+/* Código de verificación en dos pasos */
+#lg-code{letter-spacing:.35em;font-size:20px;font-weight:600}
+
 /* Fuerza de contraseña */
 .lg-str{display:none;margin:-4px 0 14px}.lg-str.show{display:block}
 .lg-str div{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}.lg-str div i{height:5px;border-radius:9px;background:#e2e8f0;transition:.25s}
