@@ -7,7 +7,7 @@
 // PARA ELIMINARLO TODO: borrar este archivo y quitar "main" y "binding" de
 // wrangler.jsonc, o simplemente hacer `git revert` del commit que lo agregó.
 // ====================================================================
-const ESTADO = 1; // 1 = encender, 0 = no hacer nada (cualquier otro valor se trata como 0)
+const ESTADO = 0; // 1 = encender, 0 = no hacer nada (cualquier otro valor se trata como 0)
 
 const RUTA = '/verificacionesp32';
 
