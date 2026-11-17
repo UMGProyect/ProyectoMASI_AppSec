@@ -1,4 +1,4 @@
-import { sb, $, $$, esc, isRole, toast, fail, tbl, money, fmtD, fmtDT, S, openModal } from './core.js';
+import { sb, $, $$, esc, isRole, toast, fail, tbl, money, fmtD, fmtDT, S, openModal, confirmDialog } from './core.js';
 
 export async function render(el) {
   const isPharmacist = isRole('admin', 'pharmacist');
@@ -136,7 +136,7 @@ export async function render(el) {
     const dispenseBtn = e.target.closest('[data-dispense]');
     if (dispenseBtn) {
       const id = dispenseBtn.dataset.dispense;
-      if (!confirm('¿Confirmar dispensación de esta receta?')) return;
+      if (!(await confirmDialog('¿Confirmar dispensación de esta receta?', { title: 'Dispensar receta', ok: 'Dispensar' }))) return;
       
       const { error } = await sb.rpc('dispense_prescription', { p_id: id });
       if (error) fail(error);
@@ -165,7 +165,7 @@ export async function render(el) {
     const receiveBtn = e.target.closest('[data-receive]');
     if (receiveBtn) {
       const id = receiveBtn.dataset.receive;
-      if (!confirm('¿Confirmar recepción de esta orden? Se actualizará el inventario automáticamente.')) return;
+      if (!(await confirmDialog('¿Confirmar recepción de esta orden? Se actualizará el inventario automáticamente.', { title: 'Recibir orden', ok: 'Recibir' }))) return;
       
       const { error } = await sb.rpc('receive_purchase_order', { p_order_id: id });
       if (error) fail(error);
@@ -179,7 +179,7 @@ export async function render(el) {
     const cancelBtn = e.target.closest('[data-cancel-order]');
     if (cancelBtn) {
       const id = cancelBtn.dataset.cancelOrder;
-      if (!confirm('¿Cancelar esta orden de compra?')) return;
+      if (!(await confirmDialog('¿Cancelar esta orden de compra?', { title: 'Cancelar orden', ok: 'Cancelar orden', cancel: 'Volver', danger: true }))) return;
       
       const { error } = await sb.from('purchase_orders').update({ status: 'cancelada' }).eq('id', id);
       if (error) fail(error);
@@ -538,7 +538,7 @@ function openSuppliersModal(suppliers, onClose) {
     const deleteBtn = e.target.closest('[data-delete-supplier]');
     if (deleteBtn) {
       const id = deleteBtn.dataset.deleteSupplier;
-      if (!confirm('¿Desactivar este proveedor? No se eliminará, solo dejará de aparecer como opción.')) return;
+      if (!(await confirmDialog('¿Desactivar este proveedor? No se eliminará, solo dejará de aparecer como opción.', { title: 'Desactivar proveedor', ok: 'Desactivar', danger: true }))) return;
 
       const { error } = await sb.from('suppliers').update({ is_active: false }).eq('id', id);
       if (error) {

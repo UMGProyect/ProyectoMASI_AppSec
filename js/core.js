@@ -1,4 +1,5 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
+import { ico } from './icons.js';
 
 export const CFG = window.APP_CONFIG || {};
 // Sin configuración no se crea el cliente (createClient lanza error con URL vacía)
@@ -20,9 +21,11 @@ export const dayBounds = (d = today()) => {
 export const fullName = p => p ? `${p.first_name} ${p.last_name}` : '';
 export const STATUSES = ['pendiente', 'programada', 'confirmada', 'en_espera', 'atendida', 'cancelada', 'ausente'];
 export const badge = s => `<span class="badge ${esc(s)}">${esc(String(s).replace('_', ' '))}</span>`;
+// Tabla estándar. Cada celda lleva data-label (texto del encabezado) para mostrarse como tarjeta en móvil.
+const plain = h => String(h ?? '').replace(/<[^>]*>/g, '').trim();
 export const tbl = (heads, rows) => rows.length
-  ? `<div class="scroll"><table><thead><tr>${heads.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`
-  : '<p class="muted">Sin resultados.</p>';
+  ? `<div class="scroll"><table class="rt"><thead><tr>${heads.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${r.map((c, i) => `<td data-label="${esc(plain(heads[i]))}">${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`
+  : `<div class="empty">${ico('inbox', 28)}<span>Sin resultados.</span></div>`;
 
 export function toast(m, err) {
   const t = $('#toast'); t.textContent = m; t.className = 'show' + (err ? ' bad' : '');
@@ -35,14 +38,68 @@ export async function audit(action, entity, entity_id = null, detail = {}) {
   await sb.from('audit_logs').insert({ user_id: S.user.id, action, entity, entity_id, detail });
 }
 
+// ---- Modales: pila de ventanas abiertas, Esc para cerrar, foco atrapado y restaurado ----
+const MODALS = [];
+const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+let modalSeq = 0;
+
+function mountOverlay(o, onEsc) {
+  const prev = document.activeElement;
+  document.body.appendChild(o);
+  document.body.classList.add('modal-open');
+  const entry = { o, modal: o.querySelector('.modal'), onEsc };
+  MODALS.push(entry);
+  entry.modal.focus();
+  let done = false;
+  return () => { // desmontar (idempotente)
+    if (done) return; done = true;
+    const i = MODALS.indexOf(entry); if (i >= 0) MODALS.splice(i, 1);
+    o.remove();
+    if (!MODALS.length) document.body.classList.remove('modal-open');
+    if (prev && document.contains(prev)) prev.focus?.();
+  };
+}
+
+document.addEventListener('keydown', e => {
+  const top = MODALS[MODALS.length - 1];
+  if (!top) return;
+  if (e.key === 'Escape') { e.preventDefault(); top.onEsc(); return; }
+  if (e.key !== 'Tab') return;
+  const f = [...top.o.querySelectorAll(FOCUSABLE)].filter(x => x.offsetParent !== null);
+  if (!f.length) { e.preventDefault(); return; }
+  const first = f[0], last = f[f.length - 1], act = document.activeElement;
+  if (e.shiftKey && (act === first || act === top.modal || !top.o.contains(act))) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && (act === last || !top.o.contains(act))) { e.preventDefault(); first.focus(); }
+});
+
 export function openModal(title, html) {
   const o = document.createElement('div');
   o.className = 'overlay';
-  o.innerHTML = `<div class="modal"><div class="bar"><h3>${esc(title)}</h3><button class="x" type="button">✕</button></div>${html}</div>`;
-  document.body.appendChild(o);
-  const close = () => o.remove();
-  $('.x', o).onclick = close;
-  return { el: o, close };
+  const id = 'mt' + (++modalSeq);
+  o.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-labelledby="${id}" tabindex="-1"><div class="bar"><h3 id="${id}">${esc(title)}</h3><button class="x" type="button" aria-label="Cerrar">${ico('close', 18)}</button></div>${html}</div>`;
+  let close;
+  close = mountOverlay(o, () => close());
+  $('.x', o).onclick = () => close();
+  return { el: o, close: () => close() };
+}
+
+// Reemplazo de confirm() nativo. Devuelve una promesa: true si confirma, false si cancela o pulsa Esc.
+export function confirmDialog(message, { title = 'Confirmar', ok = 'Confirmar', cancel = 'Cancelar', danger = false } = {}) {
+  return new Promise(resolve => {
+    const o = document.createElement('div');
+    o.className = 'overlay top';
+    const id = 'mt' + (++modalSeq);
+    o.innerHTML = `<div class="modal confirm" role="alertdialog" aria-modal="true" aria-labelledby="${id}" aria-describedby="${id}d" tabindex="-1">
+      <h3 id="${id}">${esc(title)}</h3><p id="${id}d" class="muted"></p>
+      <div class="row end"><button type="button" class="btn ghost" data-c>${esc(cancel)}</button><button type="button" class="btn${danger ? ' danger' : ''}" data-ok>${esc(ok)}</button></div></div>`;
+    $('p', o).textContent = message;
+    let unmount;
+    const finish = v => { unmount(); resolve(v); };
+    unmount = mountOverlay(o, () => finish(false));
+    $('[data-c]', o).onclick = () => finish(false);
+    $('[data-ok]', o).onclick = () => finish(true);
+    $(danger ? '[data-c]' : '[data-ok]', o).focus(); // en acciones destructivas el foco inicia en Cancelar
+  });
 }
 
 // =====================================================================

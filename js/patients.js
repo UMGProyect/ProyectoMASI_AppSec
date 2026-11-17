@@ -1,4 +1,4 @@
-import { sb, S, $, esc, toast, fail, isRole, audit, fmtD, fmtDT, openModal, fullName, tbl, badge } from './core.js';
+import { sb, S, $, esc, toast, fail, isRole, audit, fmtD, fmtDT, openModal, confirmDialog, fullName, tbl, badge } from './core.js';
 
 const BT = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 const canEdit = () => isRole('admin', 'doctor', 'nurse');
@@ -48,7 +48,7 @@ function form(p, done, selfUser) {
       const { data: dup } = await sb.from('patients').select('id').eq('dpi', o.dpi).maybeSingle();
       if (dup) return toast('Ya existe un paciente con ese DPI', true);
       const { data: sim } = await sb.from('patients').select('id').ilike('first_name', o.first_name).ilike('last_name', o.last_name).eq('birth_date', o.birth_date).limit(1);
-      if (sim?.length && !confirm('Existe un paciente con el mismo nombre y fecha de nacimiento. ¿Registrar de todos modos?')) return;
+      if (sim?.length && !(await confirmDialog('Existe un paciente con el mismo nombre y fecha de nacimiento. ¿Registrar de todos modos?', { title: 'Posible duplicado', ok: 'Registrar de todos modos' }))) return;
       if (selfUser) o.user_id = selfUser;
     }
     const { error } = p ? await sb.from('patients').update(o).eq('id', p.id) : await sb.from('patients').insert(o);

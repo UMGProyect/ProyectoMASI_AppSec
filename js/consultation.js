@@ -1,4 +1,4 @@
-import { sb, $, $$, esc, toast, fail, isRole, audit, fmtD, fmtDT, openModal, fullName, badge } from './core.js';
+import { sb, $, $$, esc, toast, fail, isRole, audit, fmtD, fmtDT, openModal, confirmDialog, fullName, badge } from './core.js';
 
 export async function render(el, apptId) {
   const { data: a, error } = await sb.from('appointments')
@@ -46,7 +46,7 @@ export async function render(el, apptId) {
     $('#fin').onclick = async () => {
       const o = collect();
       if (!o.reason || !o.diagnosis || !o.plan) return toast('Complete motivo, diagnóstico y plan antes de finalizar', true);
-      if (!confirm('Al finalizar, la consulta quedará bloqueada y solo un administrador podrá desbloquearla. ¿Continuar?')) return;
+      if (!(await confirmDialog('Al finalizar, la consulta quedará bloqueada y solo un administrador podrá desbloquearla. ¿Continuar?', { title: 'Finalizar consulta', ok: 'Finalizar', danger: true }))) return;
       if (!(await save({ finalized: true, finalized_at: new Date().toISOString() }))) return;
       await sb.from('appointments').update({ status: 'atendida' }).eq('id', a.id);
       toast('Consulta finalizada'); render(el, apptId);
@@ -54,7 +54,7 @@ export async function render(el, apptId) {
     $('#rx').onclick = () => rxModal(c, () => render(el, apptId));
   }
   if ($('#unl')) $('#unl').onclick = async () => {
-    if (!confirm('¿Desbloquear esta consulta para edición?')) return;
+    if (!(await confirmDialog('¿Desbloquear esta consulta para edición?', { title: 'Desbloquear consulta', ok: 'Desbloquear' }))) return;
     if (await save({ finalized: false, finalized_at: null })) { toast('Consulta desbloqueada'); render(el, apptId); }
   };
 }
