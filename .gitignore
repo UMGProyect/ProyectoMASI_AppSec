@@ -4,3 +4,8 @@ dist/
 .env.*
 # config.js local (el hosting lo genera en el build con build.js)
 config.js
+
+# Reportes de los escaneos de seguridad (se generan en Actions)
+sca-report.json
+semgrep-report.*
+gitleaks-report.json
