@@ -62,6 +62,7 @@ jobs:
           docker run --rm -v "$PWD:/repo" --entrypoint sh zricethezav/gitleaks:v8.18.4 -c \
             "git config --global --add safe.directory /repo && \
              gitleaks detect --source=/repo --redact --no-banner \
+               --gitleaks-ignore-path=/repo/.gitleaksignore \
                --report-format=json --report-path=/repo/gitleaks-report.json"
       - name: Resumen en el panel de la ejecución
         if: always()
