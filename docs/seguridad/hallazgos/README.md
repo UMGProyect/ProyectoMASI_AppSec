@@ -21,7 +21,9 @@ Los resultados consolidados se documentan aquí. Los reportes originales permane
 - **Nota:** los 18 registros no representan necesariamente 18 vulnerabilidades independientes. Los resultados deben correlacionarse con el contexto de uso en navegador y el esquema de versiones de SheetJS.
 - **Otras observaciones:** ocho referencias externas sin SRI; evaluar cuáles admiten integridad estática y cuáles son dinámicas.
 - **Tratamiento:** clasificar identificadores GHSA/CVE, verificar las rutas ejecutadas y plantear actualizaciones sin romper reportes PDF/XLSX.
-- **Estado:** pendiente de clasificación por impacto y remediación.
+- **Actualización propuesta (2026-11-21):** jsPDF 2.5.1 → 4.2.1 y jsPDF-AutoTable 3.8.2 → 5.0.9, tanto en `index.html` como en el fallback de `js/reports.js`. La actualización del complemento acompaña el cambio de versión mayor de jsPDF; la lógica de los reportes no se modificó.
+- **Pruebas de aceptación:** validar descarga de PDF financiero, clínico, inventario y pacientes; tablas, paginación y ausencia de errores de consola. Contrastar nuevamente el artefacto SCA/OSV. No afirmar que todo SCA queda resuelto, ya que SheetJS continúa pendiente.
+- **Estado:** corrección de dependencia PDF publicada en rama de prueba; pendiente de validación funcional por el responsable.
 
 ## APPSEC-003 — Semgrep (SAST)
 
