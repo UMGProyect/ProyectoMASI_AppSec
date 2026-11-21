@@ -30,9 +30,9 @@ jobs:
           semgrep scan --metrics=off \
             --config p/javascript --config p/owasp-top-ten --config p/secrets \
             --exclude node_modules --exclude dist \
-            --json --json-output=semgrep-report.json \
-            --sarif --sarif-output=semgrep-report.sarif \
-            --text --output=semgrep-report.txt
+            --json-output=semgrep-report.json \
+            --sarif-output=semgrep-report.sarif \
+            --text-output=semgrep-report.txt
       - name: Resumen en el panel de la ejecución
         if: always()
         run: |
