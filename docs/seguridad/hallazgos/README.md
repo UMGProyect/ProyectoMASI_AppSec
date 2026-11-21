@@ -7,9 +7,12 @@ Los resultados consolidados se documentan aquí. Los reportes originales permane
 - **Regla:** `generic-api-key`; archivo `js/login.js`, línea 3; commit señalado `32732831b5a8419c199e3516d570303697a3b640`.
 - **Evidencia:** [run 44955130841](https://github.com/UMGProyect/ProyectoMASI_AppSec/actions/runs/44955130841) y [run 44961043661](https://github.com/UMGProyect/ProyectoMASI_AppSec/actions/runs/44961043661), artefacto `secretos-gitleaks`.
 - **Resultado:** un hallazgo; Gitleaks escaneó 25 commits en la ejecución más reciente.
-- **Evaluación:** probable falso positivo: `RECAPTCHA_SITE_KEY` está diseñada para uso público en navegador, a diferencia de la clave privada de verificación.
-- **Pendiente:** verificar las restricciones de dominio y que no exista una clave privada en el repositorio; considerar excepción únicamente específica y documentada.
-- **Estado:** en evaluación.
+- **Evaluación:** falso positivo confirmado para la detección documentada: `RECAPTCHA_SITE_KEY` es una clave pública de reCAPTCHA v3 y coincide con la clave registrada en Google reCAPTCHA; no es la clave privada de verificación.
+- **Verificación manual (2026-11-21):** dominio autorizado `proyectomasi-appsec.finterianoz.workers.dev`; opción «Verificar el origen de las soluciones de reCAPTCHA» habilitada, según consola revisada por el responsable del proyecto.
+- **Tratamiento:** excepción exacta por huella en `.gitleaksignore` (`generic-api-key`, `js/login.js`, commit `32732831b5a8419c199e3516d570303697a3b640`, línea 3). Otras coincidencias, ubicaciones, commits y reglas seguirán siendo analizadas.
+- **Riesgo residual:** esta revisión no comprueba por sí sola la lógica de verificación de tokens del lado servidor ni demuestra ausencia de otras claves privadas; mantener ambos controles bajo revisión.
+- **Prueba de cierre:** ejecutar Gitleaks en GitHub Actions y confirmar que termina sin detecciones no exceptuadas, conservando el escaneo completo del historial.
+- **Estado:** falso positivo validado; excepción pendiente de prueba en pipeline.
 
 ## APPSEC-002 — SCA/OSV: dependencias por CDN
 
