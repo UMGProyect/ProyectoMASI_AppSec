@@ -23,7 +23,12 @@ Los resultados consolidados se documentan aquí. Los reportes originales permane
 - **Tratamiento:** clasificar identificadores GHSA/CVE, verificar las rutas ejecutadas y plantear actualizaciones sin romper reportes PDF/XLSX.
 - **Actualización propuesta (2026-11-21):** jsPDF 2.5.1 → 4.2.1 y jsPDF-AutoTable 3.8.2 → 5.0.9, tanto en `index.html` como en el fallback de `js/reports.js`. La actualización del complemento acompaña el cambio de versión mayor de jsPDF; la lógica de los reportes no se modificó.
 - **Pruebas de aceptación:** validar descarga de PDF financiero, clínico, inventario y pacientes; tablas, paginación y ausencia de errores de consola. Contrastar nuevamente el artefacto SCA/OSV. No afirmar que todo SCA queda resuelto, ya que SheetJS continúa pendiente.
-- **Estado:** corrección de dependencia PDF publicada en rama de prueba; pendiente de validación funcional por el responsable.
+- **Validación funcional (2026-11-21):** responsable confirmó descargas correctas de los cuatro reportes PDF (financiero, clínico, inventario y pacientes), tablas, paginación y ausencia de errores de consola.
+- **Actualización SheetJS:** 0.18.5 / 0.20.1 → 0.20.3 desde el CDN oficial en `index.html` y `js/reports.js`; el responsable confirmó los cuatro reportes XLSX, hojas y datos esperados, y ausencia de errores de consola.
+- **Resultados del SCA en [run 44964656315](https://github.com/UMGProyect/ProyectoMASI_AppSec/actions/runs/44964656315):** jsPDF 4.2.1 y AutoTable 5.0.9 sin avisos; SheetJS 0.20.3 con dos avisos GHSA heredados de los rangos de npm.
+- **Evaluación de SheetJS 0.20.3:** los avisos `GHSA-4r6h-8v6p-xvw6` (corregido en 0.19.3) y `GHSA-5pgg-2g8v-p4x9` (corregido en 0.20.2) no aplican a la distribución oficial 0.20.3. Los resultados originales de OSV deben permanecer en el reporte y distinguirse de vulnerabilidades aplicables.
+- **Control implementado:** clasificación limitada por ID, versión exacta y CDN oficial en `.github/scripts/sca_cdn.py`; los errores de consulta OSV producen fallo explícito de análisis (código 2). La clasificación requiere corroboración en GitHub Actions.
+- **Estado:** actualizaciones PDF/XLSX validadas funcionalmente; clasificación OSV publicada en rama de prueba, pendiente de verificar en CI; ocho referencias sin SRI pendientes de revisión.
 
 ## APPSEC-003 — Semgrep (SAST)
 
