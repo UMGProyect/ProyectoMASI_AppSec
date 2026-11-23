@@ -1,0 +1,11 @@
+title = "Centro Medico Premier - deteccion de secretos"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "cmp-hardcoded-db-secret"
+description = "Credencial de base de datos o service role asignada como literal"
+regex = '''(?i)\b(?:SUPABASE_DB_PASSWORD|SUPABASE_SERVICE_ROLE_KEY|POSTGRES_PASSWORD|DB_PASSWORD)["']?\s*[:=]\s*["']([^"'\r\n]+)["']'''
+secretGroup = 1
+keywords = ["supabase_db_password", "supabase_service_role_key", "postgres_password", "db_password"]
