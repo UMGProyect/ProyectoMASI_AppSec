@@ -1,0 +1,11 @@
+title = "Centro Medico Premier - demo de secretos"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "demo-supabase-db-password"
+description = "Asignacion literal ficticia de contrasena de Supabase para la prueba controlada"
+regex = '''(?i)\bSUPABASE_DB_PASSWORD\s*=\s*["'](DEMO_ONLY_[A-Z0-9_]+)["']'''
+secretGroup = 1
+keywords = ["supabase_db_password"]
