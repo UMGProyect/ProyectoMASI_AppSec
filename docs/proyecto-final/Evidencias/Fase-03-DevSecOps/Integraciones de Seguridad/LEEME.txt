@@ -1,0 +1,93 @@
+CENTRO MÉDICO PREMIER
+EVIDENCIAS DE IMPLEMENTACIÓN DEVSECOPS Y REGRESIÓN FUNCIONAL
+
+Fecha de ejecución: 23 de noviembre de 2026.
+
+1. OBJETIVO
+
+Documentar la implementación y validación de los controles preventivos DevSecOps, la protección de la rama main, el bloqueo de integraciones inseguras y las pruebas de regresión funcional posteriores al despliegue en producción.
+
+2. ESTRUCTURA DE EVIDENCIAS
+
+SECURITY-GATE/
+
+Configuración de controles:
+- EV-F03-CONFIG-001-Creacion-Ruleset.png
+- EV-F03-CONFIG-002-Reglas-Rama.png
+- EV-F03-CONFIG-003-Reglas-Adicionales.png
+- EV-F03-CONFIG-004-Status-Check-Obligatorio.png
+- EV-F03-CONFIG-005-Cloudflare-Preview-Desactivado.png
+- EV-F03-CONFIG-006-Cloudflare-Produccion.png
+
+Validación de controles:
+- EV-F03-GATE-001.png: Introducción de una credencial ficticia.
+- EV-F03-GATE-002.png: Resultado de la prueba negativa.
+- EV-F03-GATE-003.png: Evidencia complementaria de la prueba.
+- EV-F03-GATE-003-Gitleaks-Deteccion.png: Detección de la credencial ficticia.
+- EV-F03-GATE-004.png: Rechazo del Security Gate.
+- EV-F03-GATE-005.png: Historial de despliegues en Cloudflare durante la prueba.
+- EV-F03-GATE-006-Remediacion-Exitosa.png: Ejecución satisfactoria posterior a la remediación.
+- EV-F03-GATE-007-Bloqueo-Merge.png: Bloqueo efectivo del Pull Request.
+- EV-F03-GATE-008-Ruleset-Activo.txt: Verificación de las políticas de protección mediante API.
+- EV-F03-GATE-009-Cloudflare-Deploy-Ready.png: Despliegue satisfactorio en producción.
+- EV-F03-GATE-010-Integracion-Produccion.txt: Trazabilidad de la integración definitiva.
+- EV-F03-GATE-011-Sincronizacion-Ramas.txt: Verificación de la sincronización de develop y main.
+
+POSTDEPLOY/
+
+Pruebas de regresión funcional:
+- EV-F03-POSTDEPLOY-001-Disponibilidad-HTTPS.txt
+- EV-F03-POSTDEPLOY-002-Autenticacion-MFA.png
+- EV-F03-POSTDEPLOY-003-Navegacion-Consultas.png
+- EV-F03-POSTDEPLOY-004-PDF.png
+- EV-F03-POSTDEPLOY-005-XLSX.png
+- EV-F03-POSTDEPLOY-006-Consola.png
+- EV-F03-POSTDEPLOY-007-Cierre-Sesion.txt
+- EV-F03-POSTDEPLOY-008-Matriz-Resultados.txt
+
+3. RESULTADOS
+
+La implementación de los controles bloqueantes mediante Semgrep, Gitleaks y SCA permitió establecer un Security Gate obligatorio para la integración de cambios a la rama main.
+
+La prueba negativa confirmó la detección de una credencial ficticia, el rechazo del Security Gate y el bloqueo efectivo de la integración mediante las políticas de protección de la rama.
+
+La prueba de remediación obtuvo resultados satisfactorios. Posteriormente, los controles definitivos fueron integrados mediante el Pull Request #4 y se verificó el despliegue en Cloudflare.
+
+Las pruebas de regresión funcional presentaron los siguientes resultados:
+
+- Pruebas ejecutadas: 9.
+- Pruebas aprobadas sin observaciones: 8.
+- Pruebas aprobadas con observaciones: 1.
+- Pruebas fallidas: 0.
+
+No se observaron regresiones funcionales atribuibles a la implementación DevSecOps dentro del alcance evaluado.
+
+4. REFERENCIAS DE TRAZABILIDAD
+
+Prueba negativa:
+https://github.com/UMGProyect/ProyectoMASI_AppSec/actions/runs/45239043913
+
+Prueba de remediación:
+https://github.com/UMGProyect/ProyectoMASI_AppSec/actions/runs/45242584420
+
+Pull Request bloqueado:
+https://github.com/UMGProyect/ProyectoMASI_AppSec/pull/5
+
+Ruleset de producción:
+https://github.com/UMGProyect/ProyectoMASI_AppSec/rules/27925163
+
+Integración definitiva:
+https://github.com/UMGProyect/ProyectoMASI_AppSec/pull/4
+
+Validación posterior a la integración:
+https://github.com/UMGProyect/ProyectoMASI_AppSec/actions/runs/45244166457
+
+5. CONSIDERACIONES
+
+Las pruebas de detección de secretos se realizaron exclusivamente con credenciales ficticias en ramas independientes.
+
+Los registros TXT complementan las evidencias gráficas mediante resultados técnicos, referencias de ejecución y confirmaciones de las pruebas realizadas.
+
+Los nombres de pacientes visibles en las capturas de reportes fueron ocultados por privacidad.
+
+Los resultados acreditan el funcionamiento de los controles y componentes evaluados, sin constituir una garantía de ausencia de vulnerabilidades.

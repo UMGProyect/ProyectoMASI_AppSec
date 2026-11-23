@@ -1,0 +1,7 @@
+Evidencia EV-F03-POSTDEPLOY-007 | PF-09 Cierre de sesión
+Fecha: 23/11/2026
+Fuente: confirmación directa del usuario tras ejecutar el procedimiento de cierre, recarga y navegación hacia atrás.
+Declaración del usuario: "No se recupera, me muestra siempre el inicio de sesion."
+Resultado: APROBADA. La navegación evaluada no recuperó el Dashboard autenticado y permaneció en la pantalla de inicio de sesión.
+Alcance: comportamiento funcional del navegador. No demuestra revocación inmediata de todos los JWT ni imposibilidad de reutilización de tokens en otros clientes.
+No se dispone de captura del cierre de sesión; se documenta la confirmación aportada.
