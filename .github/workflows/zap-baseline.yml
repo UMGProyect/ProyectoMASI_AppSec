@@ -16,10 +16,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Verificar que SITE_URL exista
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
         run: |
-          if [ -z "${{ vars.SITE_URL }}" ]; then echo "Falta la variable SITE_URL"; exit 1; fi
+          if [ -z "$SITE_URL" ]; then echo "Falta la variable SITE_URL"; exit 1; fi
       - name: ZAP baseline scan
-        uses: zaproxy/action-baseline@v0.12.0
+        uses: zaproxy/action-baseline@66042c8e7e24680119199a017e5b0e8603bf4dae # v0.12.0
         with:
           target: ${{ vars.SITE_URL }}
           allow_issue_writing: false   # no crea issues en el repositorio
