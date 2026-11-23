@@ -1,0 +1,93 @@
+# Pipeline de seguridad (Fase 3 del reto: SAST, SCA y detección de secretos).
+# Corre en cada push y pull request. Esta primera versión es una LÍNEA BASE: los
+# escaneos no bloquean (continue-on-error) para registrar el estado "antes" de los
+# controles. Cuando se corrijan los hallazgos, quitar continue-on-error para que
+# el pipeline bloquee el merge ante nuevos problemas.
+name: Seguridad (SAST, SCA, secretos)
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sast-semgrep:
+    name: SAST (Semgrep)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Instalar Semgrep
+        run: python -m pip install --quiet semgrep
+      - name: Escanear código (JavaScript, OWASP Top 10, secretos)
+        run: |
+          semgrep scan --metrics=off \
+            --config p/javascript --config p/owasp-top-ten --config p/secrets \
+            --exclude node_modules --exclude dist \
+            --json-output=semgrep-report.json \
+            --sarif-output=semgrep-report.sarif \
+            --text-output=semgrep-report.txt
+      - name: Resumen en el panel de la ejecución
+        if: always()
+        run: |
+          {
+            echo '## SAST (Semgrep)'
+            echo
+            echo '```'
+            tail -n 40 semgrep-report.txt 2>/dev/null || echo 'Sin reporte'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sast-semgrep
+          path: semgrep-report.*
+
+  secrets-gitleaks:
+    name: Secretos (Gitleaks)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # historial completo: un secreto borrado sigue en el historial
+      - name: Escanear historial
+        run: |
+          docker run --rm -v "$PWD:/repo" --entrypoint sh zricethezav/gitleaks:v8.18.4 -c \
+            "git config --global --add safe.directory /repo && \
+             gitleaks detect --source=/repo --redact --no-banner \
+               --gitleaks-ignore-path=/repo/.gitleaksignore \
+               --report-format=json --report-path=/repo/gitleaks-report.json"
+      - name: Resumen en el panel de la ejecución
+        if: always()
+        run: |
+          n=$(python3 -c "import json;print(len(json.load(open('gitleaks-report.json'))))" 2>/dev/null || echo 'sin reporte')
+          { echo '## Secretos (Gitleaks)'; echo; echo "Hallazgos: $n"; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: secretos-gitleaks
+          path: gitleaks-report.json
+
+  sca-cdn:
+    name: SCA (dependencias por CDN)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Consultar OSV y revisar SRI
+        run: python .github/scripts/sca_cdn.py --fail-on-vuln
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sca-cdn
+          path: sca-report.json

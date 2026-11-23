@@ -3,7 +3,7 @@ import { sb, $, $$, esc, isRole, toast, fail, tbl, money, fmtD, fmtDT, S, openMo
 async function loadSheetJS() {
   if (window.XLSX) return window.XLSX;
   const script = document.createElement('script');
-  script.src = 'https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js';
+  script.src = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
   document.head.appendChild(script);
   return new Promise((resolve) => {
     script.onload = () => resolve(window.XLSX);
@@ -14,8 +14,8 @@ async function loadJsPDF() {
   if (window.jspdf) return window.jspdf;
   
   const scripts = [
-    'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
-    'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js'
+    'https://cdnjs.cloudflare.com/ajax/libs/jspdf/4.2.1/jspdf.umd.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/5.0.9/jspdf.plugin.autotable.min.js'
   ];
   
   for (const src of scripts) {

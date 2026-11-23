@@ -1,0 +1,28 @@
+# Pentest de caja negra (Fase 4): OWASP ZAP en modo BASELINE (pasivo).
+# Solo observa el sitio desplegado: no envía ataques ni modifica datos.
+# Ejecución manual: pestaña Actions -> "ZAP baseline" -> Run workflow.
+# La URL sale de la variable del repositorio SITE_URL (Settings -> Secrets and variables -> Actions -> Variables).
+name: ZAP baseline
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  zap:
+    name: OWASP ZAP baseline
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verificar que SITE_URL exista
+        run: |
+          if [ -z "${{ vars.SITE_URL }}" ]; then echo "Falta la variable SITE_URL"; exit 1; fi
+      - name: ZAP baseline scan
+        uses: zaproxy/action-baseline@v0.12.0
+        with:
+          target: ${{ vars.SITE_URL }}
+          allow_issue_writing: false   # no crea issues en el repositorio
+          fail_action: false           # línea base: registra, no bloquea
+          artifact_name: zap-baseline-report
+          cmd_options: '-a'
