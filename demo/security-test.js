@@ -1,1 +1,1 @@
-const PROJECT_NAME = "Centro Médico Premier";
+const SUPABASE_DB_PASSWORD = "DEMO_ONLY_NOT_A_REAL_SECRET";
