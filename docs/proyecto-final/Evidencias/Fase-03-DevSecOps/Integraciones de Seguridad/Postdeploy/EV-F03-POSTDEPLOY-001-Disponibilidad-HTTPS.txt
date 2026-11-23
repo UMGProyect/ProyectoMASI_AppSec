@@ -1,0 +1,17 @@
+Evidencia EV-F03-POSTDEPLOY-001 | PF-01 Disponibilidad
+Fecha: 23/11/2026 19:11:01 GMT (13:11:01 Guatemala)
+Fuente: encabezados de Network copiados por el usuario desde Chrome.
+Request URL: https://proyectomasi-appsec.finterianoz.workers.dev/
+Request method: GET
+Status code: 200 OK
+Remote address: 172.67.190.131:443
+Content-Type: text/html
+Server: cloudflare
+CF-Cache-Status: HIT
+Cache-Control: public, max-age=0, must-revalidate
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: strict-origin-when-cross-origin
+Resultado: APROBADA. Se verificó respuesta HTTPS 200. Los encabezados CSP y HSTS no figuran en el listado aportado; se mantienen como observaciones previamente identificadas. El HIT de caché no acredita el SHA exacto servido.
+Se transcriben los encabezados relevantes; no se incluyen datos de telemetría innecesarios.

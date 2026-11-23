@@ -1,0 +1,13 @@
+Evidencia EV-F03-GATE-010 | Integración definitiva y despliegue
+Fecha: 23/11/2026
+Fuente: consulta de GitHub y captura de Cloudflare aportada por el usuario.
+PR #4: https://github.com/UMGProyect/ProyectoMASI_AppSec/pull/4
+Origen: develop; destino: main.
+Commit de develop validado: 09e08c9c7e9f66d37c272a816389e957d99626e6
+Ejecución del PR: https://github.com/UMGProyect/ProyectoMASI_AppSec/actions/runs/45236304004 (cuatro jobs satisfactorios).
+Merge: d7a158ababb207abe7529871caa99f669a9b829b, 23/11/2026 18:59:26 UTC.
+Archivos integrados: .github/gitleaks.toml, .github/workflows/security.yml, .github/workflows/zap-baseline.yml, docs/flujo-integracion-segura.md.
+Ejecución posterior al merge: https://github.com/UMGProyect/ProyectoMASI_AppSec/actions/runs/45244166457
+SAST, Gitleaks, SCA y Security Gate (integracion): success.
+Cloudflare: identificador de despliegue mostrado d85ec3cc, rama main, mensaje Merge pull request #4, estado Ready, duración mostrada 37 s.
+Resultado: APROBADA. Se acreditó el despliegue asociado al PR #4. El identificador de despliegue Cloudflare no debe confundirse con el SHA Git.

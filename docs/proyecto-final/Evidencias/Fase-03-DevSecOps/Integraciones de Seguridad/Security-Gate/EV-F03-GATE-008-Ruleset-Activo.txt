@@ -1,0 +1,16 @@
+Evidencia EV-F03-GATE-008 | Protección de main
+Fecha: 23/11/2026
+Fuente: consulta directa del Ruleset de GitHub mediante API.
+URL: https://github.com/UMGProyect/ProyectoMASI_AppSec/rules/27925163
+Nombre registrado: Protecction-Produccion
+ID: 27925163
+Enforcement: active
+Rama objetivo: refs/heads/main
+Bypass actors: []
+Reglas: deletion; non_fast_forward; pull_request; required_status_checks.
+Aprobaciones humanas obligatorias: 0.
+Resolución de conversaciones: obligatoria.
+Validación contra última versión de main: obligatoria (strict_required_status_checks_policy=true).
+Check requerido: Security Gate (integracion), integration_id=15368 (GitHub Actions).
+Resultado: APROBADA. Las políticas de rama están activas. Las capturas de configuración inicial no sustituyen esta verificación posterior a la creación.
+Limitación: no existe revisión humana independiente obligatoria.

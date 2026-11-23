@@ -1,0 +1,15 @@
+Registro consolidado | Regresión funcional posterior al despliegue
+Centro Médico Premier | 23/11/2026
+PF-01 | Disponibilidad HTTPS | Aprobada | 001 TXT
+PF-02 | Autenticación | Aprobada | 002 PNG: token HTTP 200, registro de sesión 204.
+PF-03 | MFA | Aprobada | 002 PNG: challenge y verify HTTP 200.
+PF-04 | Navegación | Aprobada | 003 PNG: solicitudes de módulos consultados HTTP 200 y 304.
+PF-05 | Consulta de registros | Aprobada | 002 y 003 PNG: consultas a Supabase satisfactorias.
+PF-06 | Exportación PDF | Aprobada | 004 PNG: 3 facturas, Q250.00.
+PF-07 | Exportación XLSX | Aprobada | 005 PNG: 3 registros, Q80 + Q20 + Q150 = Q250.00.
+PF-08 | Consola | Aprobada con observación | 006 PNG: requestStorageAccess: Permission denied; probable componente reCAPTCHA. Sin impacto funcional observado. Origen exacto no comprobado.
+PF-09 | Cierre de sesión | Aprobada | 007 TXT: confirmación directa del usuario.
+
+Totales: 9 ejecutadas, 8 aprobadas sin observación, 1 aprobada con observación, 0 fallidas.
+Conclusión: no se observaron regresiones funcionales atribuibles al cambio DevSecOps en los escenarios evaluados. La validación no equivale a una evaluación exhaustiva de seguridad ni a una garantía de ausencia de vulnerabilidades.
+Las capturas de reportes conservan los importes y estructura, con los nombres de pacientes ocultos por privacidad.

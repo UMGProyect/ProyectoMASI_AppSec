@@ -1,0 +1,8 @@
+Evidencia EV-F03-GATE-011 | Sincronización de develop y main
+Fecha: 23/11/2026
+Fuente: salida de terminal PowerShell aportada por el usuario.
+Comandos: git branch --show-current; git log -1 --oneline
+Salida:
+develop
+d7a158a (HEAD -> develop, origin/main, origin/develop, origin/HEAD) Merge pull request #4 from UMGProyect/develop
+Resultado: APROBADA. Las referencias mostradas apuntan al mismo commit. No se dispone de captura de esta terminal.
