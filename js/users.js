@@ -1,4 +1,4 @@
-import { sb, $, esc, isRole, toast, fail, tbl, audit, S } from './core.js';
+import { sb, $, esc, isRole, toast, fail, tbl, audit, openModal, S } from './core.js';
 
 const STAFF_ROLES = ['admin', 'doctor', 'nurse', 'pharmacist', 'cashier'];
 
@@ -66,7 +66,7 @@ export async function render(el) {
         `<select data-role="${u.id}" ${u.id === S.user.id ? 'disabled' : ''}>
           ${['patient', ...STAFF_ROLES].map(r => `<option value="${r}" ${r === u.role ? 'selected' : ''}>${r}</option>`).join('')}
         </select>`,
-        u.id === S.user.id ? '<span class="muted">(Usted)</span>' : `<button class="btn sm" data-save-role="${u.id}">Guardar</button>`
+        u.id === S.user.id ? '<span class="muted">(Usted)</span>' : `<button type="button" class="btn sm ghost" data-edit-name="${u.id}">Editar nombre</button> <button class="btn sm" data-save-role="${u.id}">Guardar rol</button>`
       ]))}
     </div>
 
@@ -111,33 +111,100 @@ export async function render(el) {
     };
   }
 
-  // 2. Delegación de eventos para botones dinámicos
-  el.addEventListener('click', async (e) => {
-    // Guardar cambio de rol manual (corrección)
-    const saveBtn = e.target.closest('[data-save-role]');
-    if (saveBtn) {
-      const id = saveBtn.dataset.saveRole;
-      const role = $(`select[data-role="${id}"]`, el).value;
-      const { error } = await sb.from('profiles').update({ role }).eq('id', id);
-      if (error) fail(error);
-      else {
-        toast('Rol actualizado');
-        await audit('role_updated', 'profiles', id, { new_role: role });
-      }
-      return;
-    }
+  // 2. Vincular los botones de esta vista, sin acumular listeners al recargarla.
+  const buttons = el.querySelectorAll('[data-edit-name], [data-save-role], [data-cancel-invite]');
+  buttons.forEach(button => {
+    button.onclick = async () => {
+      if (!isRole('admin') || !S.user) return;
 
-    // Cancelar invitación pendiente
-    const cancelBtn = e.target.closest('[data-cancel-invite]');
-    if (cancelBtn) {
-      const id = cancelBtn.dataset.cancelInvite;
-      const { error } = await sb.from('staff_invites').delete().eq('id', id);
-      if (error) fail(error);
-      else {
-        toast('Invitación cancelada');
-        await audit('invite_cancelled', 'staff_invites', id);
-        render(el);
+      if (button.hasAttribute('data-edit-name')) {
+        const user = users?.find(u => u.id === button.dataset.editName);
+        if (!user || user.id === S.user.id) return;
+        const actor = S.user.id;
+        const modal = openModal('Editar nombre de usuario', `
+          <form id="edit-user-name-form">
+            <p class="muted">${esc(user.email)}</p>
+            <label for="edit-user-name">Nombre completo</label>
+            <input id="edit-user-name" name="full_name" type="text" value="${esc(user.full_name || '')}" required maxlength="150">
+            <div class="row end">
+              <button type="button" class="btn ghost" data-cancel-name>Cancelar</button>
+              <button type="submit" class="btn">Guardar nombre</button>
+            </div>
+          </form>
+        `);
+        const form = $('#edit-user-name-form', modal.el);
+        const input = $('#edit-user-name', modal.el);
+        const submit = $('button[type="submit"]', form);
+        $('[data-cancel-name]', form).onclick = () => modal.close();
+        input.focus();
+        form.onsubmit = async (e) => {
+          e.preventDefault();
+          if (submit.disabled) return;
+          if (!isRole('admin') || S.user?.id !== actor) {
+            modal.close();
+            return toast('La sesión administrativa ya no está disponible.', true);
+          }
+          const full_name = input.value.trim();
+          if (!full_name || full_name.length > 150) {
+            return toast('Ingrese un nombre de 1 a 150 caracteres.', true);
+          }
+          if (full_name === user.full_name) return modal.close();
+          submit.disabled = true;
+          try {
+            // RLS de profiles conserva la autorización de administrador y MFA.
+            const { data, error } = await sb.from('profiles')
+              .update({ full_name }).eq('id', user.id).neq('id', actor)
+              .select('id, full_name').single();
+            if (error || !data) return fail(error || 'No se actualizó el perfil.');
+            // Registro complementario, siguiendo la auditoría de cambios de rol.
+            // Un fallo de auditoría no debe aparentar que el nombre no se guardó.
+            try {
+              const { error: auditError } = await sb.from('audit_logs').insert({
+                user_id: actor, action: 'profile_name_updated', entity: 'profiles',
+                entity_id: user.id, detail: { field: 'full_name' }
+              });
+              if (auditError) toast('Nombre actualizado; no se pudo registrar la auditoría.', true);
+              else toast('Nombre actualizado');
+            } catch {
+              toast('Nombre actualizado; no se pudo registrar la auditoría.', true);
+            }
+            modal.close();
+            if (el.contains(button) && isRole('admin') && S.user?.id === actor) render(el);
+          } catch (error) {
+            fail(error);
+          } finally {
+            submit.disabled = false;
+          }
+        };
+        return;
       }
-    }
+
+      // Guardar cambio de rol manual (corrección)
+      const saveBtn = button.hasAttribute('data-save-role') ? button : null;
+      if (saveBtn) {
+        const id = saveBtn.dataset.saveRole;
+        const role = $(`select[data-role="${id}"]`, el).value;
+        const { error } = await sb.from('profiles').update({ role }).eq('id', id);
+        if (error) fail(error);
+        else {
+          toast('Rol actualizado');
+          await audit('role_updated', 'profiles', id, { new_role: role });
+        }
+        return;
+      }
+
+      // Cancelar invitación pendiente
+      const cancelBtn = button.hasAttribute('data-cancel-invite') ? button : null;
+      if (cancelBtn) {
+        const id = cancelBtn.dataset.cancelInvite;
+        const { error } = await sb.from('staff_invites').delete().eq('id', id);
+        if (error) fail(error);
+        else {
+          toast('Invitación cancelada');
+          await audit('invite_cancelled', 'staff_invites', id);
+          render(el);
+        }
+      }
+    };
   });
 }
