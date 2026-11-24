@@ -67,7 +67,7 @@ export function authView(boot, mode = 'login') {
   const saved = getSaved();
   $('#app').innerHTML = `<div class="lg-shell">
   <aside class="lg-brand">
-    <div class="lg-logo"><i>${IC.cross}</i>Centro Médico Premier</div>
+    <div class="lg-logo"><i>${IC.cross}</i>Centro Médico Premier GRUPO DE SEGURIDAD DE APLICACIONES</div>
     <div class="lg-hero"><h2>Su salud, en buenas manos.</h2><p>Gestione sus citas, consulte su expediente y reciba atención coordinada en un solo lugar.</p>
       <ul><li><i>${IC.cal}</i>Solicite y siga sus citas en línea</li><li><i>${IC.file}</i>Expediente, consultas y recetas digitales</li><li><i>${IC.shield}</i>Sus datos protegidos con acceso por roles</li></ul></div>
     <div class="lg-foot">© ${new Date().getFullYear()} Centro Médico Premier · Guatemala</div>
