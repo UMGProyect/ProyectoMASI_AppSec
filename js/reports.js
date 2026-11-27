@@ -179,11 +179,36 @@ function openReportConfigModal(type, doctors, parentEl) {
 
       if (type === 'financial') {
         const { data, error } = await sb.rpc('generate_financial_report', {
-          p_from: from, p_to: to, p_format: format
+          p_from: from,
+          p_to: to,
+          p_format: format
         });
         if (error) throw error;
-        reportData = data.data;
-        reportType = 'financial';
+        if (!data?.data || !data?.report_id) {
+          throw new Error('La RPC no devolvió un reporte financiero válido');
+        }
+
+        // La RPC registra el reporte y su auditoría en una única transacción.
+        // El historial admin conserva metadata.data mediante la migración 04.
+        const report = {
+          id: data.report_id,
+          report_type: 'financial',
+          generated_by: S.user.id,
+          generated_at: new Date().toISOString(),
+          row_count: data.data.invoices?.length ?? 0,
+          file_format: format,
+          metadata: {
+            filters: { from, to },
+            data: data.data
+          }
+        };
+
+        toast(`Reporte generado: ${report.row_count} registros`);
+        close();
+        openReportPreview(report, {
+          [S.user.id]: S.profile?.full_name || 'Usuario autenticado'
+        });
+        return;
       } else if (type === 'clinical') {
         const doctorId = formData.get('doctor_id') || null;
       
