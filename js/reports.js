@@ -186,12 +186,41 @@ function openReportConfigModal(type, doctors, parentEl) {
         reportType = 'financial';
       } else if (type === 'clinical') {
         const doctorId = formData.get('doctor_id') || null;
+      
         const { data, error } = await sb.rpc('generate_clinical_report', {
-          p_from: from, p_to: to, p_doctor_id: doctorId
+          p_from: from,
+          p_to: to,
+          p_doctor_id: doctorId
         });
+      
         if (error) throw error;
-        reportData = data.data;
-        reportType = 'clinical';
+        if (!data?.data) {
+          throw new Error('La RPC no devolvió los datos del reporte');
+        }
+      
+        // La RPC ya registró el reporte y su auditoría.
+        // No realizar una segunda inserción en report_exports.
+        const report = {
+          id: data.report_id,
+          report_type: 'clinical',
+          generated_by: S.user.id,
+          generated_at: new Date().toISOString(),
+          row_count: data.data.totals?.total_consultations ?? 0,
+          file_format: format,
+          metadata: {
+            filters: { from, to, doctor_id: doctorId },
+            data: data.data
+          }
+        };
+      
+        toast(`Reporte generado: ${report.row_count} registros`);
+        close();
+      
+        openReportPreview(report, {
+          [S.user.id]: S.profile?.full_name || 'Usuario autenticado'
+        });
+      
+        return;
       } else if (type === 'inventory') {
         const [{ data: products }, { data: batches }, { data: movements }] = await Promise.all([
           sb.from('products').select('*').order('name'),
