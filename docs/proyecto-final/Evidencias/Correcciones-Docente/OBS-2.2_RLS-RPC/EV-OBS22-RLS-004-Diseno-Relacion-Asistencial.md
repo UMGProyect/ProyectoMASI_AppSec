@@ -8,3 +8,6 @@ Estado: propuesto/versionado; aplicación y verificación posterior pendientes.
 - Los módulos de citas, expedientes, consulta, dashboard y farmacia solicitan nombres a RPC de directorio en lugar de leer perfiles completos.
 - Despliegue: aplicar migración 05 en SQL Editor, comprobar RLS y desplegar frontend coordinadamente. Durante la transición el frontend anterior no puede recuperar algunos nombres o directorio; no repetir migraciones 01–04. Verificar login, MFA, selección de médicos, agenda, expediente y farmacia. Revertir mediante cambio coordinado si hay regresión; no restaurar indiscriminadamente el acceso global.
 - El caso negativo AAL2 previo está en EV-OBS22-RLS-001-Autorizacion-Antes.txt. No se ha ejecutado esta migración ni las pruebas posteriores.
+
+
+Actualización: migración aplicada y PR #20 integrado; 13/13 casos SQL y 6/6 comprobaciones de interfaz informadas. Consultar EV-OBS22-RLS-002, 003 y 005. Los límites descritos siguen vigentes cuando no fueron cubiertos por las pruebas.

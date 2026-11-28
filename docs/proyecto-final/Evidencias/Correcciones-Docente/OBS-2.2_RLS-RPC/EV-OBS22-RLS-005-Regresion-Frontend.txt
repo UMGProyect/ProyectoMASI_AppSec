@@ -1,0 +1,9 @@
+Regresión de interfaz — confirmación aportada por el responsable tras PR #20.
+6/6 comprobaciones declaradas satisfactorias:
+1. Inicio de sesión médico con MFA.
+2. Módulo de pacientes muestra únicamente el paciente relacionado.
+3. Agenda y nombres de médicos disponibles.
+4. Apertura del expediente asignado.
+5. Paciente puede seleccionar médico al solicitar cita.
+6. Administrador conserva acceso a todos los pacientes.
+No se aportaron capturas, trazas HTTP, hora exacta ni SHA desplegado independiente. No acredita envío de cita, escrituras válidas, farmacia ni todos los roles.
