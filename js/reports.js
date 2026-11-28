@@ -1,32 +1,49 @@
 import { sb, $, $$, esc, isRole, toast, fail, tbl, money, fmtD, fmtDT, S, openModal } from './core.js';
 
-async function loadSheetJS() {
-  if (window.XLSX) return window.XLSX;
-  const script = document.createElement('script');
-  script.src = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
-  document.head.appendChild(script);
-  return new Promise((resolve) => {
-    script.onload = () => resolve(window.XLSX);
+// Los hashes se verificaron sobre los bytes descargados de los CDN.
+// Si falla SRI o CORS, no se ejecuta el recurso ni se intenta cargar sin SRI.
+function loadVerifiedScript(src, integrity) {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.integrity = integrity;
+    script.crossOrigin = 'anonymous';
+    script.onload = resolve;
+    script.onerror = () => {
+      script.remove();
+      reject(new Error('No se pudo cargar la dependencia verificada: ' + src));
+    };
+    script.src = src;
+    document.head.appendChild(script);
   });
 }
 
+async function loadSheetJS() {
+  if (!window.XLSX) {
+    await loadVerifiedScript(
+      'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js',
+      'sha384-EnyY0/GSHQGSxSgMwaIPzSESbqoOLSexfnSMN2AP+39Ckmn92stwABZynq1JyzdT'
+    );
+  }
+  if (!window.XLSX) throw new Error('SheetJS no está disponible');
+  return window.XLSX;
+}
+
 async function loadJsPDF() {
-  if (window.jspdf) return window.jspdf;
-  
-  const scripts = [
-    'https://cdnjs.cloudflare.com/ajax/libs/jspdf/4.2.1/jspdf.umd.min.js',
-    'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/5.0.9/jspdf.plugin.autotable.min.js'
-  ];
-  
-  for (const src of scripts) {
-    if (!document.querySelector(`script[src="${src}"]`)) {
-      const script = document.createElement('script');
-      script.src = src;
-      document.head.appendChild(script);
-      await new Promise(resolve => {
-        script.onload = resolve;
-      });
-    }
+  if (!window.jspdf?.jsPDF) {
+    await loadVerifiedScript(
+      'https://cdnjs.cloudflare.com/ajax/libs/jspdf/4.2.1/jspdf.umd.min.js',
+      'sha384-qovJwSBbRDPP5cEjCp8S0UP66wrvnjaa60XMOGzTNanrThcrGfXfnZkvgY8N1KT3'
+    );
+  }
+  if (!window.jspdf?.jsPDF) throw new Error('jsPDF no está disponible');
+  if (typeof window.jspdf.jsPDF.API?.autoTable !== 'function') {
+    await loadVerifiedScript(
+      'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/5.0.9/jspdf.plugin.autotable.min.js',
+      'sha384-A77YsHWitrPuAj8E0AuB033EXzymUxIajnWKPzrrzqFoYYSCEpFennDUjMG2R1L3'
+    );
+  }
+  if (typeof window.jspdf.jsPDF.API?.autoTable !== 'function') {
+    throw new Error('jsPDF AutoTable no está disponible');
   }
   return window.jspdf;
 }
