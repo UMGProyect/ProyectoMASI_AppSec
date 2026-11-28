@@ -1,0 +1,26 @@
+# EV-F03-CLOUD-002-Hardening-Despues
+Fuente: salida cURL/PowerShell compartida por el responsable el 27/11/2026 (Guatemala), 28/11/2026 UTC. Extracto de campos relevantes, no log íntegro.
+Commit integrado: 562aa2ce891587cb9b86c3c90afb953845200596 (PR #16).
+
+HEAD HTTPS — 02:30:16 GMT
+HTTP/1.1 200 OK
+Strict-Transport-Security: max-age=31536000
+Content-Security-Policy: default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://cdn.sheetjs.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://www.google.com https://www.gstatic.com https://*.supabase.co; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://www.google.com/recaptcha/; frame-src https://www.google.com/recaptcha/ https://recaptcha.google.com/recaptcha/; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; upgrade-insecure-requests
+permissions-policy: camera=(), microphone=(), geolocation=()
+referrer-policy: strict-origin-when-cross-origin
+x-content-type-options: nosniff
+x-frame-options: DENY
+
+HEAD HTTP — 02:30:17 GMT
+HTTP/1.1 308 Permanent Redirect
+Location: https://proyectomasi-appsec.finterianoz.workers.dev/
+Cache-Control: no-store
+
+curl -L — seguimiento de redirección
+HTTP: 200
+URL: https://proyectomasi-appsec.finterianoz.workers.dev/
+SSL: 0
+
+GET HTTPS — 02:30:20 GMT
+HTTP/1.1 200 OK
+HSTS, CSP y las cuatro cabeceras anteriores presentes.

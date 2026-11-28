@@ -1,0 +1,51 @@
+PS C:\WINDOWS\system32> $URL = "https://proyectomasi-appsec.finterianoz.workers.dev"
+PS C:\WINDOWS\system32>
+PS C:\WINDOWS\system32> Write-Host "`n=== HTTPS Y CABECERAS ===" -ForegroundColor Cyan
+
+=== HTTPS Y CABECERAS ===
+PS C:\WINDOWS\system32> curl.exe -sS -I "$URL"
+HTTP/1.1 200 OK
+Date: Sat, 28 Nov 2026 02:20:55 GMT
+Content-Type: text/html
+Connection: keep-alive
+CF-Cache-Status: HIT
+Cache-Control: public, max-age=0, must-revalidate
+permissions-policy: camera=(), microphone=(), geolocation=()
+referrer-policy: strict-origin-when-cross-origin
+x-content-type-options: nosniff
+x-frame-options: DENY
+Report-To: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=ci66ypTmlepnd%2FKJ2EUF3gfWWJIlny3FsDyNcx2JNiedElBa6Y%2Bb5wxv1YDxhX8CL023hJ%2FHcCpBu38dSkUUSBN2OnM2O9Pdff%2BctIFcZ6Sk0Gxm2NPUxS%2FuT2262i3aALUJLgGTkUh3ZdYOSal%2Bl7%2B74pVl7OnfnMoV023H"}]}
+Nel: {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
+Server: cloudflare
+CF-RAY: a615e56ead95e886-ATL
+alt-svc: h3=":443"; ma=86400
+
+PS C:\WINDOWS\system32>
+PS C:\WINDOWS\system32> Write-Host "`n=== COMPORTAMIENTO HTTP ===" -ForegroundColor Cyan
+
+=== COMPORTAMIENTO HTTP ===
+PS C:\WINDOWS\system32> curl.exe -sS -I ($URL -replace "^https:", "http:")
+HTTP/1.1 200 OK
+Date: Sat, 28 Nov 2026 02:20:55 GMT
+Content-Type: text/html
+Connection: keep-alive
+CF-Cache-Status: HIT
+Cache-Control: public, max-age=0, must-revalidate
+permissions-policy: camera=(), microphone=(), geolocation=()
+referrer-policy: strict-origin-when-cross-origin
+x-content-type-options: nosniff
+x-frame-options: DENY
+Report-To: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=6PREuMg2JDLrC%2FapyXnhpUnqgHmJfxI4S3W2mxPGIGF67GXRsH3Ai2Pqe4o7YJNjA7XvyYnF26cc1tIfD9waMxuRcckbWjdl2vdFhQ2G6s7%2FoFwH7CMwv8quuRGmwppt5a4ls4Z%2FjJgAtQT38wsNpMuneLhTEZDk6tpRvOm4"}]}
+Nel: {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
+Server: cloudflare
+CF-RAY: a615e56fccd0bfc4-ATL
+alt-svc: h3=":443"; ma=86400
+
+PS C:\WINDOWS\system32>
+PS C:\WINDOWS\system32> Write-Host "`n=== REDIRECCION Y VALIDACION TLS ===" -ForegroundColor Cyan
+
+=== REDIRECCION Y VALIDACION TLS ===
+PS C:\WINDOWS\system32> curl.exe -sS -L -o NUL -w "HTTP: %{http_code}\nURL: %{url_effective}\nSSL: %{ssl_verify_result}\n" ($URL -replace "^https:", "http:")
+HTTP: 200
+URL: http://proyectomasi-appsec.finterianoz.workers.dev/
+SSL: 0
