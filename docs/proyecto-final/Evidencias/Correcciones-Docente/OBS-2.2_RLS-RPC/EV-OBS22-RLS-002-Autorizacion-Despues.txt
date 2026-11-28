@@ -1,0 +1,29 @@
+[
+  {
+    "verificacion_rls": {
+      "mfa_superado": true,
+      "rol_postgresql": "authenticated",
+      "fecha_verificacion": "2026-11-28T03:56:51.749108+00:00",
+      "rls_patients_activo": true,
+      "rls_profiles_activo": true,
+      "rol_admin_confirmado": true,
+      "rol_medico_confirmado": true,
+      "rol_paciente_confirmado": true,
+      "RLS_01_perfil_propio_permitido": true,
+      "RLS_02_perfil_ajeno_bloqueado": true,
+      "RLS_03_paciente_asignado_permitido": true,
+      "RLS_04_paciente_ajeno_bloqueado": true,
+      "RLS_05_edicion_ajena_bloqueada": true,
+      "RLS_06_autoasignacion_bloqueada": true,
+      "RLS_07_asociacion_protegida": true,
+      "RLS_08_expediente_propio_permitido": true,
+      "RLS_09_expediente_ajeno_bloqueado": true,
+      "RLS_10_rpc_clinica_bloqueada": true,
+      "RLS_11_directorio_medico_disponible": true,
+      "RLS_12_medico_aal1_bloqueado": true,
+      "RLS_13_admin_acceso_permitido": true,
+      "perfil_completo_medico_bloqueado": true,
+      "perfil_propio_disponible_en_aal1": true
+    }
+  }
+]
