@@ -1,4 +1,4 @@
-import { sb, $, $$, esc, isRole, toast, fail, tbl, money, fmtD, fmtDT, S, openModal, confirmDialog } from './core.js';
+import { getProfileNames, sb, $, $, esc, isRole, toast, fail, tbl, money, fmtD, fmtDT, S, openModal, confirmDialog } from './core.js';
 
 export async function render(el) {
   const isPharmacist = isRole('admin', 'pharmacist');
@@ -6,19 +6,17 @@ export async function render(el) {
   console.log('[pharmacy] Rol actual:', S.profile?.role, '| isPharmacist:', isPharmacist);
   
   // Cargar datos en paralelo (sin el join problemático de profiles en inventory_movements)
-  const [rxRes, productsRes, batchesRes, movementsRes, suppliersRes, ordersRes, profilesRes] = await Promise.all([
+  const [rxRes, productsRes, batchesRes, movementsRes, suppliersRes, ordersRes] = await Promise.all([
     sb.from('prescriptions').select(`
       *,
       patient:patients(first_name, last_name, dpi),
-      doctor:profiles(full_name),
       prescription_items(*, product:products(name))
     `).order('created_at', { ascending: false }).limit(50),
     sb.from('products').select('*').order('name'),
     isPharmacist ? sb.from('product_batches').select('*, products(name)').order('expiration_date').limit(100) : Promise.resolve({ data: [], error: null }),
     isPharmacist ? sb.from('inventory_movements').select('*, products(name)').order('performed_at', { ascending: false }).limit(50) : Promise.resolve({ data: [], error: null }),
     isPharmacist ? sb.from('suppliers').select('*').eq('is_active', true).order('name') : Promise.resolve({ data: [], error: null }),
-    isPharmacist ? sb.from('purchase_orders').select('*, suppliers(name)').order('created_at', { ascending: false }).limit(50) : Promise.resolve({ data: [], error: null }),
-    isPharmacist ? sb.from('profiles').select('id, full_name') : Promise.resolve({ data: [], error: null })
+    isPharmacist ? sb.from('purchase_orders').select('*, suppliers(name)').order('created_at', { ascending: false }).limit(50) : Promise.resolve({ data: [], error: null })
   ]);
 
   if (movementsRes.error) console.error('[pharmacy] Error movimientos:', movementsRes.error);
@@ -30,7 +28,7 @@ export async function render(el) {
   const movements = movementsRes.data || [];
   const suppliers = suppliersRes.data || [];
   const orders = ordersRes.data || [];
-  const userNames = Object.fromEntries((profilesRes.data || []).map(u => [u.id, u.full_name]));
+  const userNames = await getProfileNames([...(rx || []).map(r => r.doctor_id), ...movements.map(m => m.performed_by)]);
 
   console.log('[pharmacy] Proveedores cargados:', suppliers.length);
 
@@ -65,7 +63,7 @@ export async function render(el) {
       <h3>Recetas Pendientes de Dispensación</h3>
       ${tbl(['Paciente', 'Médico', 'Fecha', 'Items', 'Estado', 'Acción'], (rx || []).filter(r => r.status === 'pendiente').map(r => [
         esc(`${r.patient?.first_name} ${r.patient?.last_name}`),
-        esc(r.doctor?.full_name || 'N/A'),
+        esc(userNames[r.doctor_id] || 'N/A'),
         esc(fmtDT(r.created_at)),
         esc(r.prescription_items?.length || 0),
         `<span class="badge pendiente">${esc(r.status)}</span>`,

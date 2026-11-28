@@ -1,4 +1,4 @@
-import { sb, esc, isRole, money, dayBounds, fullName, badge } from './core.js';
+import { getProfileNames, sb, esc, isRole, money, dayBounds, fullName, badge } from './core.js';
 import { ico } from './icons.js';
 
 const hhmm = d => new Date(d).toLocaleTimeString('es-GT', { hour: '2-digit', minute: '2-digit' });
@@ -17,7 +17,7 @@ export async function render(el) {
       count('appointments', q => q.eq('status', 'pendiente'))]);
     cards.push(['Pacientes registrados hoy', pat, 'users', ''], ['Citas del día', apt, 'calendar', 't-blue'], ['Consultas atendidas', att, 'check', 't-green']);
     if (isRole('admin', 'nurse')) cards.push(['Solicitudes de cita pendientes', pend, 'clock', 't-amber']);
-    ({ data: agenda } = await sb.from('appointments').select('id,starts_at,status,patient:patients(first_name,last_name),doctor:profiles!doctor_id(full_name)')
+    ({ data: agenda } = await sb.from('appointments').select('id,starts_at,status,doctor_id,patient:patients(first_name,last_name)')
       .gte('starts_at', s).lt('starts_at', e).order('starts_at'));
   }
   if (isRole('admin', 'cashier')) {
@@ -32,11 +32,13 @@ export async function render(el) {
     cards.push(['Recetas pendientes', rx ?? 0, 'pill', 't-amber']);
   }
 
+  agenda = agenda || [];
+  const names = await getProfileNames(agenda.map(a => a.doctor_id));
   const statCard = ([l, v, icon, tone]) =>
     `<div class="stat ${tone}"><i class="st-ic">${ico(icon, 22)}</i>${esc(l)}<b>${esc(v)}</b></div>`;
   const agendaItem = a =>
     `<li class="tl-item"><span class="tl-t">${esc(hhmm(a.starts_at))}</span><span class="tl-dot"></span>
-      <div class="tl-body"><b>${esc(fullName(a.patient))}</b><small>Dr/a. ${esc(a.doctor?.full_name)}</small> ${badge(a.status)}</div></li>`;
+      <div class="tl-body"><b>${esc(fullName(a.patient))}</b><small>Dr/a. ${esc(names[a.doctor_id] || 'No disponible')}</small> ${badge(a.status)}</div></li>`;
 
   el.innerHTML = `<div class="bar"><h2>Dashboard</h2><span class="muted">${new Date().toLocaleDateString('es-GT', { dateStyle: 'full' })}</span></div>
   <div class="cards">${cards.map(statCard).join('')}</div>
