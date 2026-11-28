@@ -14,3 +14,7 @@ Maestría en Seguridad Informática, UMG. Corte de pruebas 27/11/2026 Guatemala.
 
 ## Trazabilidad de evidencias
 [PR #18](https://github.com/UMGProyect/ProyectoMASI_AppSec/pull/18) incorpora 15 archivos (commit documental 587222ec26904180045d62de4226b076a34f7a24; integración 3da1bcee7c9cf80a4566dfcdcd07b998d131af1a; [gate posterior](https://github.com/UMGProyect/ProyectoMASI_AppSec/actions/runs/46102126731) success). [Índice de originales anonimizados](00_INDICE_EVIDENCIAS.md). Los documentos nuevos consolidan resultados aportados por el responsable y registros históricos, sin sustituir las salidas originales; no se ejecutan nuevas pruebas. Los datos personales y credenciales no se publican. Pendiente rotación/revocación de credenciales expuestas si no se realizó.
+
+
+## Actualización posterior: autorización por objeto (27-11-2026)
+PR #20 integrado: d7d61698c1d45dbc935c92fe1c71b772ddca7066; PR #21 integrado: ab7864f5e233146a175de8c81748846de225cb6b. Los estados históricos de RLS y riesgo de la matriz anterior se sustituyen por esta actualización: 13/13 pruebas SQL con claims simulados y 6/6 comprobaciones de interfaz informadas por el responsable. AM-08 8/25 (medio), AM-09 10/25 (alto), AM-03/10 15/25 (alto); 20 altos, 1 medio, 0 críticos estimados. No hay aceptación formal. El acceso amplio de enfermería/caja, vigencia de relaciones y pruebas HTTP RLS siguen pendientes. Ver [matriz actualizada](OBS-2.5_Riesgo-Residual/EV-OBS25-RIESGO-001-Matriz-Residual.md) y [regresión](OBS-2.2_RLS-RPC/EV-OBS22-RLS-005-Regresion-Frontend.txt).
