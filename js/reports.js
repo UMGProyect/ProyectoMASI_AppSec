@@ -179,11 +179,36 @@ function openReportConfigModal(type, doctors, parentEl) {
 
       if (type === 'financial') {
         const { data, error } = await sb.rpc('generate_financial_report', {
-          p_from: from, p_to: to, p_format: format
+          p_from: from,
+          p_to: to,
+          p_format: format
         });
         if (error) throw error;
-        reportData = data.data;
-        reportType = 'financial';
+        if (!data?.data || !data?.report_id) {
+          throw new Error('La RPC no devolvió un reporte financiero válido');
+        }
+
+        // La RPC registra el reporte y su auditoría en una única transacción.
+        // El historial admin conserva metadata.data mediante la migración 04.
+        const report = {
+          id: data.report_id,
+          report_type: 'financial',
+          generated_by: S.user.id,
+          generated_at: new Date().toISOString(),
+          row_count: data.data.invoices?.length ?? 0,
+          file_format: format,
+          metadata: {
+            filters: { from, to },
+            data: data.data
+          }
+        };
+
+        toast(`Reporte generado: ${report.row_count} registros`);
+        close();
+        openReportPreview(report, {
+          [S.user.id]: S.profile?.full_name || 'Usuario autenticado'
+        });
+        return;
       } else if (type === 'clinical') {
         const doctorId = formData.get('doctor_id') || null;
       
@@ -295,6 +320,12 @@ function openReportConfigModal(type, doctors, parentEl) {
   };
 }
 
+// Compatibilidad con filas creadas por las RPC: los filtros están en la
+// columna report_exports.filters; los reportes antiguos usan metadata.filters.
+function reportFilters(report) {
+  return report.metadata?.filters || report.filters || {};
+}
+
 function openReportPreview(report, userNames = {}) {
   const data = report.metadata?.data;
   if (!data) {
@@ -397,7 +428,7 @@ function openReportPreview(report, userNames = {}) {
   const { el, close } = openModal(`Vista Previa: ${report.report_type.toUpperCase()}`, `
     <div style="display:grid; gap:1rem;">
       <div style="background:#e3f2fd; padding:0.75rem; border-radius:4px; border-left:4px solid #2196F3;">
-        <strong>Período:</strong> ${fmtD(report.metadata?.filters?.from)} al ${fmtD(report.metadata?.filters?.to)}<br>
+        <strong>Período:</strong> ${fmtD(reportFilters(report).from)} al ${fmtD(reportFilters(report).to)}<br>
         <strong>Generado:</strong> ${fmtDT(report.generated_at)}<br>
         <strong>Generado por:</strong> ${esc(userNames[report.generated_by] || 'Sistema')}<br>
         <strong>Filas:</strong> ${report.row_count}
@@ -422,7 +453,7 @@ async function downloadReport(report, userNames = {}) {
   }
 
   const format = report.file_format;
-  const filename = `reporte_${report.report_type}_${report.metadata?.filters?.from}_a_${report.metadata?.filters?.to}`;
+  const filename = `reporte_${report.report_type}_${reportFilters(report).from}_a_${reportFilters(report).to}`;
 
   try {
     if (format === 'csv') {
@@ -446,7 +477,7 @@ function downloadCSV(report, data, filename, userNames = {}) {
   rows.push([]);
   rows.push(['Generado por', userNames[report.generated_by] || '']);
   rows.push(['Generado el', report.generated_at]);
-  rows.push(['Período', `${report.metadata?.filters?.from} al ${report.metadata?.filters?.to}`]);
+  rows.push(['Período', `${reportFilters(report).from} al ${reportFilters(report).to}`]);
   rows.push([]);
 
   if (report.report_type === 'financial') {
@@ -533,7 +564,7 @@ async function downloadXLSX(report, data, filename, userNames = {}) {
     [],
     ['Generado por', userNames[report.generated_by] || ''],
     ['Generado el', report.generated_at],
-    ['Período', `${report.metadata?.filters?.from} al ${report.metadata?.filters?.to}`],
+    ['Período', `${reportFilters(report).from} al ${reportFilters(report).to}`],
     []
   ];
 
@@ -655,7 +686,7 @@ async function downloadPDF(report, data, filename, userNames = {}) {
   yPos += 5;
   doc.text(`Fecha de generación: ${fmtDT(report.generated_at)}`, 18, yPos);
   yPos += 5;
-  doc.text(`Período: ${fmtD(report.metadata?.filters?.from)} al ${fmtD(report.metadata?.filters?.to)}`, 18, yPos);
+  doc.text(`Período: ${fmtD(reportFilters(report).from)} al ${fmtD(reportFilters(report).to)}`, 18, yPos);
 
   yPos += 15;
 
