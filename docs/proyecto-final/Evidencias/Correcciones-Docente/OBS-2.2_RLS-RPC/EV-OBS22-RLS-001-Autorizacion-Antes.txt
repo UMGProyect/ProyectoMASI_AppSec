@@ -1,0 +1,12 @@
+Resultado aportado por el responsable: 2026-11-28 03:49:24.031315 UTC.
+Prueba SQL con SET LOCAL ROLE authenticated y claims JWT simulados AAL2; ROLLBACK.
+rol_medico_confirmado=true
+control_mfa_superado=true
+rls_profiles_activo=true
+rls_patients_activo=true
+acceso_perfil_propio=true
+acceso_perfil_ajeno=true
+acceso_paciente_asignado=true
+acceso_paciente_no_asignado=true
+Conclusión: exposición por políticas permisivas, aun con RLS y MFA.
+Inventario previo: 4 pacientes, 1 medico activo, 3 admin, 3 usuarios paciente. Un paciente con cita/consulta del medico activo y tres sin cita/consulta; ninguno registrado por ese médico. No se exponen identificadores ni información clínica. La prueba no equivale a autenticación HTTP real.

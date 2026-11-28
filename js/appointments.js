@@ -1,4 +1,4 @@
-import { sb, S, $, $$, esc, toast, fail, isRole, fmtDT, fullName, openModal, dayBounds, today, badge, STATUSES } from './core.js';
+import { getProfileNames, sb, S, $, $, esc, toast, fail, isRole, fmtDT, fullName, openModal, dayBounds, today, badge, STATUSES } from './core.js';
 
 const SLOTS = []; for (let h = 8; h < 18; h++) for (const m of ['00', '30']) SLOTS.push(`${String(h).padStart(2, '0')}:${m}`);
 
@@ -10,12 +10,13 @@ export async function render(el) {
     <button class="btn" id="new">${pat ? 'Solicitar cita' : '+ Nueva cita'}</button></div></div><div id="list"></div>`;
 
   const load = async () => {
-    let q = sb.from('appointments').select('id,starts_at,status,reason,patient:patients(id,first_name,last_name,dpi),doctor:profiles!doctor_id(full_name)').order('starts_at', { ascending: !pat });
+    let q = sb.from('appointments').select('id,starts_at,status,reason,doctor_id,patient:patients(id,first_name,last_name,dpi)').order('starts_at', { ascending: !pat });
     if (!pat) {
       if (mode === 'pend') q = q.eq('status', 'pendiente');
       else { const [s, e] = dayBounds($('#d').value); q = q.gte('starts_at', s).lt('starts_at', e); }
     }
     const { data, error } = await q; if (error) return fail(error);
+    const names = await getProfileNames(data.map(a => a.doctor_id));
     $('#list').innerHTML = data.length ? data.map(a => {
       const d = new Date(a.starts_at);
       const acts = [];
@@ -24,7 +25,7 @@ export async function render(el) {
       if (a.status === 'atendida') acts.push(`<a href="#/consultation/${a.id}">Ver consulta</a>`);
       const stSel = (staff || doc) ? `<select data-st="${a.id}">${STATUSES.map(s => `<option ${s === a.status ? 'selected' : ''}>${s}</option>`).join('')}</select>` : badge(a.status);
       return `<div class="appt"><div class="t">${d.toLocaleTimeString('es-GT', { hour: '2-digit', minute: '2-digit' })}<div class="muted" style="font-size:11px;font-weight:400">${d.toLocaleDateString('es-GT')}</div></div>
-        <div class="i"><b>${pat ? '' : `<a href="#/patients/${a.patient?.id}">${esc(fullName(a.patient))}</a>`}</b> ${pat ? '' : '· '}Dr/a. ${esc(a.doctor?.full_name)}<br><span class="muted">${esc(a.reason || 'Sin motivo')}</span></div>${stSel}${acts.join('')}</div>`;
+        <div class="i"><b>${pat ? '' : `<a href="#/patients/${a.patient?.id}">${esc(fullName(a.patient))}</a>`}</b> ${pat ? '' : '· '}Dr/a. ${esc(names[a.doctor_id] || 'No disponible')}<br><span class="muted">${esc(a.reason || 'Sin motivo')}</span></div>${stSel}${acts.join('')}</div>`;
     }).join('') : '<p class="muted">No hay citas.</p>';
   };
   $('#list').onchange = async e => {
@@ -46,8 +47,10 @@ async function newAppt(done) {
   const pat = isRole('patient'), doc = isRole('doctor');
   const { data: ps } = await sb.from('patients').select('id,first_name,last_name,dpi').order('last_name').limit(1000);
   if (!ps?.length) return toast(pat ? 'Primero complete su expediente en "Mi expediente"' : 'No hay pacientes registrados', true);
-  let { data: docs } = await sb.from('profiles').select('id,full_name').eq('role', 'doctor').order('full_name');
-  if (doc) docs = docs.filter(d => d.id === S.user.id);
+  let { data: docs, error: doctorError } = await sb.rpc('list_doctors');
+  if (doctorError) return fail(doctorError);
+  if (doc) docs = (docs || []).filter(d => d.id === S.user.id);
+  if (!docs?.length) return toast('No hay médicos disponibles', true);
   const opt = (a, f) => a.map(x => `<option value="${x.id}">${esc(f(x))}</option>`).join('');
   const m = openModal(pat ? 'Solicitar cita' : 'Nueva cita', `<form><div class="grid">
     ${pat ? `<input type="hidden" name="patient_id" value="${ps[0].id}">` : `<label>Paciente<input id="pf" placeholder="Filtrar por nombre o DPI…"><select name="patient_id" id="ps" required>${opt(ps, p => `${p.last_name}, ${p.first_name} — ${p.dpi}`)}</select></label>`}

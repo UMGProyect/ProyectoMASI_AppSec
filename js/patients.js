@@ -1,4 +1,4 @@
-import { sb, S, $, esc, toast, fail, isRole, audit, fmtD, fmtDT, openModal, confirmDialog, fullName, tbl, badge } from './core.js';
+import { getProfileNames, sb, S, $, esc, toast, fail, isRole, audit, fmtD, fmtDT, openModal, confirmDialog, fullName, tbl, badge } from './core.js';
 
 const BT = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 const canEdit = () => isRole('admin', 'doctor', 'nurse');
@@ -69,8 +69,9 @@ async function detail(el, id) {
   if (error) { el.innerHTML = '<p class="err">Paciente no disponible.</p>'; return; }
   audit('view', 'patient', id);
   const [{ data: ap }, { data: cs }] = await Promise.all([
-    sb.from('appointments').select('id,starts_at,status,reason,doctor:profiles!doctor_id(full_name)').eq('patient_id', id).order('starts_at', { ascending: false }),
+    sb.from('appointments').select('id,starts_at,status,reason,doctor_id').eq('patient_id', id).order('starts_at', { ascending: false }),
     sb.from('consultations').select('id,appointment_id,diagnosis,finalized,created_at').eq('patient_id', id).order('created_at', { ascending: false })]);
+  const names = await getProfileNames((ap || []).map(a => a.doctor_id));
   const cnt = {}; (ap || []).forEach(a => (cnt[a.status] = (cnt[a.status] || 0) + 1));
   const age = Math.floor((Date.now() - new Date(p.birth_date + 'T00:00:00')) / 31557600000);
   el.innerHTML = `<div class="bar"><h2>${esc(fullName(p))}</h2><div class="row">${!isRole('patient') ? '<a href="#/patients">← Volver</a>' : ''}${canEdit() ? '<button class="btn ghost" id="ed">Editar</button>' : ''}</div></div>
@@ -79,7 +80,7 @@ async function detail(el, id) {
     <div><span class="muted">Sangre</span><br>${esc(p.blood_type || '—')}</div><div><span class="muted">Teléfono</span><br>${esc(p.phone)}</div>
     <div><span class="muted">Correo</span><br>${esc(p.email || '—')}</div><div><span class="muted">Emergencia</span><br>${esc(p.emergency_name)} · ${esc(p.emergency_phone)}</div></div></div>
   <div class="card"><h3>Resumen de citas</h3><p>${Object.entries(cnt).map(([k, n]) => `${badge(k)} ${n}`).join(' &nbsp; ') || '<span class="muted">Sin citas</span>'}</p>
-  ${tbl(['Fecha', 'Médico', 'Motivo', 'Estado'], (ap || []).slice(0, 15).map(a => [fmtDT(a.starts_at), esc(a.doctor?.full_name), esc(a.reason), badge(a.status)]))}</div>
+  ${tbl(['Fecha', 'Médico', 'Motivo', 'Estado'], (ap || []).slice(0, 15).map(a => [fmtDT(a.starts_at), esc(names[a.doctor_id] || 'No disponible'), esc(a.reason), badge(a.status)]))}</div>
   <div class="card"><h3>Consultas</h3>${tbl(['Fecha', 'Diagnóstico', ''], (cs || []).map(c => [fmtDT(c.created_at), esc((c.diagnosis || '—').slice(0, 90)), `<a href="#/consultation/${c.appointment_id}">${c.finalized ? 'Ver' : 'Abrir'}</a>`]))}</div>`;
   if ($('#ed')) $('#ed').onclick = () => form(p, () => detail(el, id));
 }

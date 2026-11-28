@@ -9,6 +9,8 @@ Las cinco RPC fueron corregidas **manualmente en Supabase** y el equipo comprob�
 1. `20261127_01_secure_clinical_report.sql`: `generate_clinical_report` exige rol, AAL2 y filtro efectivo por médico autenticado (AM-10/AM-12).
 2. `20261127_02_secure_financial_report.sql`: `generate_financial_report` exige rol y AAL2.
 3. `20261127_03_secure_billing_dispensing_receiving.sql`: `billable_items`, `dispense_prescription` y `receive_purchase_order` exigen rol y AAL2.
+4. `20261127_04_financial_report_single_record.sql`: persistencia única e historial financiero; verificación funcional realizada.
+5. `20261127_05_object_level_authorization.sql`: perfiles privados, directorio mínimo y relación asistencial para médicos. Pendiente de aplicación y pruebas posteriores. Coordinar con los cambios de frontend del PR; no repetir 01–04.
 
 Todas conservan `SECURITY DEFINER`, restringen `search_path` y califican los objetos de base de datos. No se adjuntan claves, contraseñas, JWT ni datos clínicos.
 
@@ -20,7 +22,7 @@ Todas conservan `SECURITY DEFINER`, restringen `search_path` y califican los obj
 - Las simulaciones de atributos JWT desde SQL Editor y transacciones con `ROLLBACK` **no demuestran** un desafío TOTP real ni operaciones de inventario finalizadas.
 
 ## Limitaciones y trabajo pendiente
-- El frontend de `js/reports.js` aún efectúa una segunda inserción de reporte **financiero** después de la RPC, aunque la RPC ya ha escrito auditoría. No eliminar esa segunda inserción sin resolver cómo se conserva `metadata.data` para el historial administrativo de reportes. Requiere un cambio de SQL y frontend coordinado, revisión de retención y una validación funcional.
+- La migración 04 y el PR #14 resolvieron la segunda inserción en la operación financiera evaluada; no se verificó concurrencia.
 - El historial administrativo existente usa `report_exports.metadata.data` para previsualización/descarga y debe respetar controles de lectura por RLS.
 - Registrar las diferencias con los SQL históricos y una futura estrategia de migraciones reproducible; no automatizar la ejecución de los archivos de línea base antiguos.
 - Completar cuando sea viable pruebas end-to-end AAL2 y validación funcional de operaciones de inventario con datos sintéticos y control de concurrencia.

@@ -1,9 +1,11 @@
-import { sb, $, $$, esc, toast, fail, isRole, audit, fmtD, fmtDT, openModal, confirmDialog, fullName, badge } from './core.js';
+import { getProfileNames, sb, $, $, esc, toast, fail, isRole, audit, fmtD, fmtDT, openModal, confirmDialog, fullName, badge } from './core.js';
 
 export async function render(el, apptId) {
   const { data: a, error } = await sb.from('appointments')
-    .select('id,status,starts_at,patient_id,doctor_id,patient:patients(id,first_name,last_name,dpi,birth_date,blood_type),doctor:profiles!doctor_id(full_name)').eq('id', apptId).single();
+    .select('id,status,starts_at,patient_id,doctor_id,patient:patients(id,first_name,last_name,dpi,birth_date,blood_type)').eq('id', apptId).single();
   if (error) { el.innerHTML = '<p class="err">Cita no disponible.</p>'; return; }
+  if (!a.patient) { el.innerHTML = '<p class="err">Paciente no disponible.</p>'; return; }
+  const names = await getProfileNames([a.doctor_id]);
   const canWrite = isRole('doctor', 'admin');
   let { data: c } = await sb.from('consultations').select('*').eq('appointment_id', apptId).maybeSingle();
   if (!c) {
@@ -20,7 +22,7 @@ export async function render(el, apptId) {
   const inp = (k, label, type = 'number', extra = '') => `<label>${label}<input name="${k}" type="${type}" ${extra} value="${esc(c[k] ?? '')}" ${d}></label>`;
   const ta = (k, label) => `<label>${label}<textarea name="${k}" ${d}>${esc(c[k] ?? '')}</textarea></label>`;
   el.innerHTML = `<div class="bar"><h2>Consulta — ${esc(fullName(a.patient))}</h2><div class="row"><a href="#/appointments">← Citas</a> ${c.finalized ? badge('atendida') + ' 🔒 Finalizada' : badge(a.status)}</div></div>
-  <p class="muted">DPI ${esc(a.patient.dpi)} · Sangre ${esc(a.patient.blood_type || '—')} · Nac. ${fmtD(a.patient.birth_date)} · Dr/a. ${esc(a.doctor?.full_name)} · ${fmtDT(a.starts_at)}</p>
+  <p class="muted">DPI ${esc(a.patient.dpi)} · Sangre ${esc(a.patient.blood_type || '—')} · Nac. ${fmtD(a.patient.birth_date)} · Dr/a. ${esc(names[a.doctor_id] || 'No disponible')} · ${fmtDT(a.starts_at)}</p>
   <div class="two"><div>
    <form id="cf" class="card"><h3>Signos vitales</h3><div class="grid">
      ${inp('blood_pressure', 'Presión (ej. 120/80)', 'text', 'pattern="\\d{2,3}/\\d{2,3}"')}${inp('temperature', 'Temperatura °C', 'number', 'step="0.1" min="30" max="45"')}

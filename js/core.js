@@ -10,6 +10,15 @@ export const $ = (s, r = document) => r.querySelector(s);
 export const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 export const esc = v => String(v ?? '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
 export const isRole = (...r) => r.includes(S.profile?.role);
+
+// Solo nombres autorizados; los perfiles completos permanecen sujetos a RLS.
+export async function getProfileNames(ids) {
+  const p_ids = [...new Set(ids.filter(Boolean))];
+  if (!p_ids.length) return {};
+  const { data, error } = await sb.rpc('profile_display_names', { p_ids });
+  if (error) { console.warn('No se pudieron consultar nombres:', error.message); return {}; }
+  return Object.fromEntries((data || []).map(p => [p.id, p.full_name]));
+}
 export const money = v => 'Q' + Number(v || 0).toFixed(2);
 export const fmtDT = d => d ? new Date(d).toLocaleString('es-GT', { dateStyle: 'short', timeStyle: 'short' }) : '';
 export const fmtD = d => d ? new Date(d.length === 10 ? d + 'T00:00:00' : d).toLocaleDateString('es-GT') : '';
