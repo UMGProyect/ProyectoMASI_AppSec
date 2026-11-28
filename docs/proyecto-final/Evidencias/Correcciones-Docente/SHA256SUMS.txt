@@ -1,0 +1,13 @@
+e16e847ea1e8a306d5e404c07331fe33bd6a66db20cd9a316c2010e41e94da04  OBS-2.3_Hardening-Cloud/Cloudflare/Resumenes/EV-F03-CLOUD-RES-002-Comparativa-Antes-Despues.png
+9cb6e8d66d47953963d1594d5e36f33626cce99a050fbea91558978c9f5d8d80  OBS-2.3_Hardening-Cloud/Cloudflare/Resumenes/EV-F03-CLOUD-RES-001-Controles-PR16.png
+4a216b8116ad865f2b0fe519f2a163991338d4bebf24964a5e29de5286b2e340  OBS-2.3_Hardening-Cloud/Cloudflare/EV-F03-CLOUD-001-Hardening-Antes.txt
+5fe7b9fa96d73c56fa0583aba441c6687523b1a6da989488b775ae3aaa135fa4  OBS-2.2_RLS-RPC/EV-F02-RPC-FIN-NEG-MFA-01.png
+f25c420b1982199d3730d542deee5ec75405113f799b0593e4d779078fb1ecf1  OBS-2.2_RLS-RPC/EV-F02-RPC-MFA-SQL-001-Admin-AAL1-AAL2.png
+d6872baafb26d206ee9f8aa51c6b6bf4f0bb45ef9d30cbf4520542ff54b00668  OBS-2.2_RLS-RPC/EV-F02-RPC-FIN-NEG-ROLE-01.png
+76f2937b18229bc74ddaacb36b77079e0063afcea330346203c1ff6a92d075cf  OBS-2.2_RLS-RPC/EV-F02-RPC-CLI-NEG-MFA-01.png
+1bb8b61005451780a45af02f13d806fc6f8c8f99b2d950ec60d416a4f19763dd  OBS-2.2_RLS-RPC/EV-F02-RPC-CLI-NEG-ROLE-01-Otro-Medico.png
+b669ebb5313a26b60095269b61292b568d4e7194d113a22af6627f1201c95a85  Capturas_adicionales_chat/OBS-2.2_RLS-RPC/EV-F02-RPC-FIN-HIST-002-Descarga-XLSX.png
+0abb24fabc337ea88ec0dbd0ba0a29cebaead381517ce16ceaeec7e456873170  Capturas_adicionales_chat/OBS-2.2_RLS-RPC/EV-F02-RPC-FIN-HIST-001-Vista-Previa.png
+a3bc0c0b211359e330b10a3ba8a165e3100a55bc803a8c8338e34e1e772eaedf  Capturas_adicionales_chat/OBS-2.3_Hardening-Cloud/Cloudflare/EV-F03-SRI-002-Regresion-Inventario.png
+3d6c4149bb9513168c5e890e978dd729abb92ca71ea96dd3c3674a5f3e5be38e  Capturas_adicionales_chat/OBS-2.3_Hardening-Cloud/Supabase/EV-F03-SUPABASE-003-SSL-Activo-Red-Sin-Restricciones.png
+54ea1988285b7539f9df3cd2cfa486355b48da7939daefe8e5c19ef323b9ca46  OBS-2.3_Hardening-Cloud/Cloudflare/EV-F03-CLOUD-002-Hardening-Despues.txt
